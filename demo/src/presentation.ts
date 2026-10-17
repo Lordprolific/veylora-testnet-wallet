@@ -11,3 +11,20 @@ export function formatBalance(result: {
   const shielded = result.shielded == null ? "Unavailable" : String(result.shielded);
   return "Available: " + available + " · Shielded: " + shielded;
 }
+
+export function isSupportedTestnetAddress(address: string): boolean {
+  // Format guard only; the dApp cannot prove the wallet's active network.
+  return /^(utest1[0-9a-z]+|tm[1-9A-HJ-NP-Za-km-z]+|t2[1-9A-HJ-NP-Za-km-z]+|t3[1-9A-HJ-NP-Za-km-z]+)$/i.test(address.trim());
+}
+
+export function isValidZecAmount(amount: string): boolean {
+  return /^(?:0|[1-9]\\d*)(?:\\.\\d{1,8})?$/.test(amount.trim()) && Number(amount) > 0 && Number.isFinite(Number(amount));
+}
+
+export function memoByteLength(memo: string): number {
+  return new TextEncoder().encode(memo).length;
+}
+
+export function supportsPrivateMemo(address: string): boolean {
+  return address.trim().toLowerCase().startsWith("utest1");
+}
