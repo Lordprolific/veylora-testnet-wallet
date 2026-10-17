@@ -308,21 +308,6 @@ function feedback(message: string, error = false) {
   element.className = `feedback visible ${error ? "error" : "success"}`;
 }
 
-async function runSync() {
-  const status = root!.querySelector<HTMLElement>("#engine-status");
-  const button = root!.querySelector<HTMLButtonElement>("#sync-button");
-  if (!status || !button || engineBusy) return;
-  engineBusy = true; button.disabled = true; status.textContent = "Syncing testnet…";
-  try {
-    const result = await syncTestnetWallet();
-    status.textContent = `Sync call completed · tip ${result.chainHeight} · scanned ${result.scannedHeight}`;
-    feedback("WebZjs sync returned. Confirm scan progress and transaction history before using this wallet.");
-  } catch (error) {
-    status.textContent = "Sync failed";
-    feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
-  } finally { engineBusy = false; button.disabled = false; }
-}
-
 root.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action]");
   if (!button) return;
