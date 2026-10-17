@@ -2,7 +2,7 @@
 
 **A developer-first starting point for building and testing Zcash dApps on testnet.**
 
-Veylora Testnet Wallet is an independent developer-tooling project for the Veylora ecosystem and the wider Zcash developer community. The goal is to make it easier for developers to connect dApps, inspect testnet account state, and test supported transaction flows without accidentally interacting with mainnet.
+Veylora Testnet Wallet is a public developer-tooling project for the Veylora ecosystem and the wider Zcash developer community. The goal is to make it easier for developers to connect dApps, inspect testnet account state, and test supported transaction flows without accidentally interacting with mainnet.
 
 > **Current status: prototype scaffold.** This repository contains an extension interface and an integration contract, not a functioning self-custody wallet. No private keys are generated or stored, and no Zcash transactions are signed or broadcast by this prototype.
 
@@ -17,6 +17,7 @@ Veylora Testnet Wallet is an independent developer-tooling project for the Veylo
 ## What's here
 
 - Manifest V3 browser-extension scaffold.
+- Read-only dApp demo in `demo/`, integrating the documented Noir Wallet SDK.
 - Dark, compact popup UI designed for a developer wallet.
 - Explicit “wallet engine not connected” state.
 - Initial provider integration contract in docs/provider-contract.md.
@@ -31,17 +32,27 @@ Veylora Testnet Wallet is an independent developer-tooling project for the Veylo
 
 This loads the prototype UI only. It does **not** create a wallet, manage keys, connect to a network, or send transactions.
 
+## Current verification
+
+- The dApp demo uses the official Noir Wallet SDK for explicit account access and read-only balance display.
+- GitHub Actions runs presentation tests and a TypeScript/Vite production build.
+- The demo cannot independently verify which Noir extension build is installed. Confirm the official testnet build before connecting.
+- The browser extension popup remains a prototype interface; it is not the wallet engine.
+
 ## Roadmap
 
-1. **Provider research:** choose a maintained Zcash testnet wallet engine/provider and verify its API, source availability, and license.
-2. **Connection adapter:** implement a typed adapter against the provider's documented API; do not guess method names.
-3. **Testnet dApp demo:** connect, request account access, and display only provider-returned information.
-4. **Transaction testing:** add supported testnet flows with explicit confirmation and clear error handling.
-5. **Security and release:** review key isolation, permissions, dependencies, recovery flows, and packaging before calling this a wallet release.
+1. Verify the official testnet extension end-to-end in a Chromium browser.
+2. Connect Veylora Market to the reusable dApp integration path.
+3. Review source licensing, extension permissions, dependency health, and release packaging.
+4. Add transaction flows only when supported by the provider, with explicit user confirmation and tests.
 
 ## Contributing
 
 Please open an issue before proposing a new provider API or transaction flow. Never share seed phrases, private keys, recovery phrases, or wallet passwords in issues, logs, screenshots, or support requests.
+
+## License status
+
+No explicit license has been selected yet. Until a license is added, do not assume the repository grants permission to redistribute or reuse its code. See [LICENSE-STATUS.md](LICENSE-STATUS.md).
 
 ## Disclaimer
 
