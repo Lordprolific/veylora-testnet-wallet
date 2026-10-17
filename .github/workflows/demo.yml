@@ -34,3 +34,20 @@ jobs:
         run: npm test
       - name: Type-check and build
         run: npm run build
+
+  extension-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate extension manifest
+        run: node -e 'JSON.parse(require("fs").readFileSync("manifest.json", "utf8")); console.log("manifest.json is valid JSON")'
+      - name: Check popup JavaScript syntax
+        run: node --check popup.js
+      - name: Check popup controls
+        run: |
+          node -e 'const html=require("fs").readFileSync("popup.html","utf8"); const js=require("fs").readFileSync("popup.js","utf8"); for (const id of ["lab-button","guide-button","copy-button","action-status"]) { if (!html.includes(`id="${id}"`) || !js.includes(`"${id}"`)) throw new Error("Missing popup control: "+id); } console.log("Popup controls are wired")'
