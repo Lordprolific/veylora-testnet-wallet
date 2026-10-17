@@ -92,15 +92,20 @@ export async function restoreTestnetAccount(database: Uint8Array, accountId: num
   } catch (error) { wallet.free(); throw error; }
 }
 
-export async function syncTestnetWallet(): Promise<{ chainHeight: string; scannedHeight: string; database: Uint8Array }> {
+export async function syncTestnetWallet(): Promise<{ chainHeight: string; scannedHeight: string; database: Uint8Array; shieldedBalance: number; transparentBalance: number; pendingBalance: number }> {
   if (!walletInstance || activeAccountId === null) throw new Error("Initialize the testnet account before syncing.");
   await walletInstance.sync();
   const summary = await walletInstance.get_wallet_summary();
   const database = await walletInstance.db_to_bytes();
+  const reports = (summary?.account_balances ?? []) as Array<[number, { sapling_balance?: number; orchard_balance?: number; unshielded_balance?: number; pending_change?: number; pending_spendable?: number }]>;
+  const report = reports.find(([accountId]) => accountId === activeAccountId)?.[1];
   return {
     chainHeight: String(summary?.chain_tip_height ?? 0),
     scannedHeight: String(summary?.fully_scanned_height ?? 0),
     database,
+    shieldedBalance: Number(report?.sapling_balance ?? 0) + Number(report?.orchard_balance ?? 0),
+    transparentBalance: Number(report?.unshielded_balance ?? 0),
+    pendingBalance: Number(report?.pending_change ?? 0) + Number(report?.pending_spendable ?? 0),
   };
 }
 
