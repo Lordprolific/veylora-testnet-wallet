@@ -10,6 +10,9 @@ on:
       - "demo/**"
       - ".github/workflows/demo.yml"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,7 +26,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: demo/package-lock.json
       - name: Install dependencies
         run: npm install
+      - name: Run presentation tests
+        run: npm test
       - name: Type-check and build
         run: npm run build
