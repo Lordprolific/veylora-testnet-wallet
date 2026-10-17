@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Veylora Testnet Wallet",
+  "short_name": "Veylora",
+  "version": "0.1.0",
+  "description": "A testnet-first developer companion for building and testing Zcash dApps.",
+  "action": {
+    "default_title": "Veylora Testnet Wallet",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["clipboardWrite"]
+}
