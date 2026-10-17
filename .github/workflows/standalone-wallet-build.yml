@@ -8,6 +8,7 @@ on:
       - "public/**"
       - "wallet.html"
       - "package.json"
+      - "package-lock.json"
       - "tsconfig.json"
       - "vite.config.ts"
       - ".github/workflows/standalone-wallet-build.yml"
@@ -23,11 +24,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm install
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - name: Verify extension package files
         run: |
           test -f dist/manifest.json
           test -f dist/background.js
           test -f dist/wallet.html
+          node -e "const m = require('./dist/manifest.json'); if (m.manifest_version !== 3) process.exit(1); if (!m.background?.service_worker) process.exit(1)"
