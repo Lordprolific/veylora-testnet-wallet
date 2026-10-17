@@ -2,7 +2,7 @@ import "./style.css";
 import { createTestnetAccount, restoreTestnetAccount, syncTestnetWallet, releaseTestnetWallet } from "./wallet/zcash-engine.js";
 
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
-let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number } | null = null;
+let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
 let engineBusy = false;
 import {
   createRecoveryPhrase,
