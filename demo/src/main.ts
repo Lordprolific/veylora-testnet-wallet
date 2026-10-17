@@ -1,5 +1,6 @@
 import { getNoirWallet } from "@noir-wallet/sdk";
 import "./style.css";
+import { formatBalance, shortenAddress } from "./presentation";
 
 const connectButton = document.querySelector<HTMLButtonElement>("#connect-button")!;
 const refreshButton = document.querySelector<HTMLButtonElement>("#refresh-button")!;
@@ -27,10 +28,6 @@ function setState(label: string, connected: boolean) {
   stateBadge.dataset.connected = String(connected);
 }
 
-function shortAddress(value: unknown): string {
-  if (typeof value !== "string" || !value) return "Not shared";
-  return value.length <= 24 ? value : value.slice(0, 12) + "…" + value.slice(-8);
-}
 
 function renderConnection(connection: ConnectionResult | null) {
   activeConnection = connection;
@@ -44,8 +41,8 @@ function renderConnection(connection: ConnectionResult | null) {
   }
 
   setState("CONNECTED", true);
-  transparentAddress.textContent = shortAddress(connection.transparent);
-  shieldedAddress.textContent = shortAddress(connection.shielded);
+  transparentAddress.textContent = shortenAddress(connection.transparent);
+  shieldedAddress.textContent = shortenAddress(connection.shielded);
   accountCount.textContent = String(Array.isArray(connection.accounts) ? connection.accounts.length : 0);
 }
 
@@ -63,9 +60,7 @@ async function refreshBalance() {
     const result = selectedAccountId
       ? await wallet.zcash.getBalance(selectedAccountId)
       : await wallet.zcash.getBalance();
-    const available = result.available == null ? "Unavailable" : String(result.available);
-    const shielded = result.shielded == null ? "Unavailable" : String(result.shielded);
-    balance.textContent = "Available: " + available + " · Shielded: " + shielded;
+    balance.textContent = formatBalance(result);
   } catch {
     balance.textContent = "Balance unavailable";
   }
