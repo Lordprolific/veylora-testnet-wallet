@@ -1,12 +1,12 @@
-# Veylora Testnet Wallet
+# Veylora Zcash Wallet
 
 ![Official Veylora four-petal mark](assets/veylora-mark.svg)
 
-**A developer-first starting point for building and testing Zcash dApps on testnet.**
+**A standalone, self-custodial Zcash wallet for Chrome.**
 
-Veylora is developer tooling for connecting dApps to Noir Wallet, inspecting explicitly shared account state, and exercising user-approved testnet payment flows.
+Veylora is being developed as an independent Zcash wallet. It is not intended to require Noir Wallet, and it is not a scanner or provider wrapper.
 
-> **Experimental prototype.** The hosted dApp lab integrates the Noir Wallet SDK. The separate browser-extension directory is still a UI scaffold, not a functioning self-custody wallet. Veylora does not implement key generation, private-key storage, or an independent signing engine.
+> **Status: early engineering build, not ready for funds or public release.** The current branch establishes a standalone extension entry point and visual shell. Wallet creation, recovery, encrypted persistence, address derivation, synchronization, transaction proving, signing, and broadcasting are not yet implemented or verified. Disabled controls are intentional.
 
 ## Live demo
 
