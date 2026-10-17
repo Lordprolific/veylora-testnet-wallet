@@ -4,10 +4,10 @@
   "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "dev": "parcel wallet.html --port 4173",
+    "build": "tsc --noEmit && parcel build wallet.html --dist-dir dist --public-url ./ && node scripts/copy-extension-assets.mjs",
     "test:security": "node --test tests/*.test.mjs",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "parcel serve wallet.html --dist-dir dist --port 4174"
   },
   "dependencies": {
     "@scure/bip39": "2.0.1",
@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vite": "^7.1.7",
-    "@types/qrcode": "1.5.5"
+    "@types/qrcode": "1.5.5",
+    "parcel": "2.13.3"
   }
 }
