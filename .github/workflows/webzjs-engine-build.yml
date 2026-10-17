@@ -2,6 +2,10 @@ name: WebZjs engine source build
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feat/webzjs-reproducible-engine-build]
+    paths:
+      - ".github/workflows/webzjs-engine-build.yml"
   pull_request:
     branches: [main]
     paths:
