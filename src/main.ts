@@ -183,7 +183,7 @@ async function vaultView(password?: string) {
         <div class="status-row"><span class="status-indicator"></span><span>Zcash account/address</span><strong>INITIALIZING</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Chain sync and payments</span><strong>NOT YET VERIFIED</strong></div>
       </div>
-      <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Addresses are derived locally by the pinned WebZjs engine. Do not send funds until synchronization and transaction flows are verified.</p><div id="address-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
+      <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Addresses are derived locally by the pinned WebZjs engine. Do not send funds until synchronization and transaction flows are verified.</p><div id="address-content"></div><div id="balance-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
       <button class="secondary full-button" data-action="reveal">${phraseVisible ? "Hide recovery phrase" : "Reveal recovery phrase"}</button>
       ${phraseVisible ? `<div class="phrase-reveal"><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></div>` : ""}
       <div class="actions"><button class="secondary" data-action="lock">Lock wallet</button><button class="secondary" data-action="home">Overview</button></div>
@@ -242,7 +242,13 @@ async function runSync() {
     const result = await syncTestnetWallet();
     await persistEncryptedWalletDatabase(result.database, engineState?.accountId ?? -1, password);
     status.textContent = `Sync returned · tip ${result.chainHeight} · scanned ${result.scannedHeight}`;
-    feedback("Sync state was encrypted and saved locally. Balance and transaction status still require end-to-end verification.");
+    const balanceContent = root!.querySelector<HTMLElement>("#balance-content");
+    if (balanceContent) {
+      const zec = (value: number) => (value / 100_000_000).toLocaleString("en-US", { minimumFractionDigits: 8, maximumFractionDigits: 8 });
+      const fullyScanned = Number(result.scannedHeight) >= Number(result.chainHeight);
+      balanceContent.innerHTML = `<div class="balance-panel"><div class="balance-title">Observed testnet balance <span>${fullyScanned ? "SCAN AT TIP" : "PARTIAL SCAN"}</span></div><div class="balance-total">${zec(result.shieldedBalance + result.transparentBalance + result.pendingBalance)} <small>ZEC</small></div><div class="balance-breakdown"><div><span>Shielded</span><strong>${zec(result.shieldedBalance)}</strong></div><div><span>Transparent</span><strong>${zec(result.transparentBalance)}</strong></div><div><span>Pending</span><strong>${zec(result.pendingBalance)}</strong></div></div><p class="small-note">${fullyScanned ? "The wallet reports its scan at the current chain tip. Verify with transaction history before relying on this balance." : "This is a partial scan and may not include all incoming activity. Keep syncing until the scanned height catches up."}</p></div>`;
+    }
+    feedback("The latest testnet scan result was encrypted and saved locally. Verify transaction history before relying on the displayed balance.");
   } catch (error) {
     status.textContent = "Sync failed";
     feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
