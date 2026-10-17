@@ -7,6 +7,7 @@ on:
       - "src/**"
       - "public/**"
       - "wallet.html"
+      - "manifest.json"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -16,19 +17,67 @@ on:
     branches: [feat/standalone-zcash-wallet]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout pinned WebZjs source
+        uses: actions/checkout@v4
+        with:
+          repository: ChainSafe/WebZjs
+          ref: a50df944c32243cb8da9f86e7d52cb65ac926439
+          path: .engine/WebZjs
+      - name: Install system build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 libclang-18-dev build-essential pkg-config
+          echo "LIBCLANG_PATH=/usr/lib/llvm-18/lib" >> "$GITHUB_ENV"
+          echo "CC=clang-18" >> "$GITHUB_ENV"
+          echo "CXX=clang++-18" >> "$GITHUB_ENV"
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-01-07
+          targets: wasm32-unknown-unknown
+          components: rust-src
+      - name: Build tools
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo +stable install wasm-pack --locked
+          cargo +stable install just --locked
+      - name: Build pinned WebZjs WASM packages
+        working-directory: .engine/WebZjs
+        run: just build
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
-      - name: Verify extension package files
+      - name: Install Veylora dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install locally built WebZjs packages
+        run: |
+          mkdir -p node_modules/@chainsafe
+          cp -R .engine/WebZjs/packages/webzjs-wallet node_modules/@chainsafe/webzjs-wallet
+          cp -R .engine/WebZjs/packages/webzjs-keys node_modules/@chainsafe/webzjs-keys
+          cp .engine/WebZjs/LICENSE-APACHE .engine/WebZjs/LICENSE-MIT public/
+      - name: Type-check and build extension
+        run: npm run build
+      - name: Verify extension package files and network restriction
         run: |
           test -f dist/manifest.json
           test -f dist/background.js
           test -f dist/wallet.html
-          node -e "const m = require('./dist/manifest.json'); if (m.manifest_version !== 3) process.exit(1); if (!m.background?.service_worker) process.exit(1)"
+          test -f dist/assets/veylora-mark.svg
+          node --input-type=module -e 'import fs from "node:fs"; const m=JSON.parse(fs.readFileSync("dist/manifest.json","utf8")); if(m.manifest_version!==3||!m.background?.service_worker) throw Error("Invalid MV3 package"); const js=fs.readdirSync("dist/assets").filter(x=>x.endsWith(".js")).map(x=>fs.readFileSync("dist/assets/"+x,"utf8")).join("\n"); if(js.includes("zcash-mainnet.chainsafe.dev")) throw Error("Mainnet endpoint found in testnet build"); console.log("MV3 package verified; testnet build only")'
+      - name: Archive Chrome extension package
+        run: |
+          cd dist
+          zip -r ../veylora-chrome-extension-testnet.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: veylora-chrome-extension-testnet
+          path: veylora-chrome-extension-testnet.zip
+          retention-days: 14
