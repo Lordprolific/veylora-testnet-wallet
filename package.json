@@ -9,8 +9,8 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@chainsafe/webzjs-keys": "^0.4.0",
-    "@chainsafe/webzjs-wallet": "^0.4.0"
+    "@chainsafe/webzjs-keys": "^0.1.0",
+    "@chainsafe/webzjs-wallet": "^0.1.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
