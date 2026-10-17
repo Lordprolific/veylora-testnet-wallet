@@ -1,7 +1,9 @@
+const labButton = document.getElementById("lab-button");
 const guideButton = document.getElementById("guide-button");
 const copyButton = document.getElementById("copy-button");
 const actionStatus = document.getElementById("action-status");
 
+const labUrl = "https://veylora-zcash-dapp-lab.vercel.app";
 const guideUrl = "https://github.com/Lordprolific/veylora-testnet-wallet/blob/main/docs/provider-contract.md";
 const providerContract = [
   "Veylora Testnet Wallet — provider integration contract",
@@ -10,6 +12,21 @@ const providerContract = [
   "Verify testnet identification, explicit account-access approval, account/address responses, transaction preview, explicit confirmation, and structured errors.",
   "Never guess provider methods. Never request or expose seed phrases or private keys. Do not enable mainnet in the initial prototype."
 ].join("\n");
+
+labButton.addEventListener("click", async () => {
+  actionStatus.textContent = "Opening the read-only dApp lab…";
+  try {
+    if (typeof chrome !== "undefined" && chrome.tabs?.create) {
+      await chrome.tabs.create({ url: labUrl });
+      actionStatus.textContent = "dApp Lab opened in a new tab.";
+    } else {
+      window.open(labUrl, "_blank", "noopener,noreferrer");
+      actionStatus.textContent = "Opening the dApp lab.";
+    }
+  } catch {
+    actionStatus.textContent = "Could not open the lab. Visit https://veylora-zcash-dapp-lab.vercel.app";
+  }
+});
 
 guideButton.addEventListener("click", async () => {
   actionStatus.textContent = "Opening integration plan…";
