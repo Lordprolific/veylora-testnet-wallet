@@ -109,6 +109,24 @@ export async function syncTestnetWallet(): Promise<{ chainHeight: string; scanne
   };
 }
 
+export async function getTestnetHistory() {
+  if (!walletInstance || activeAccountId === null) throw new Error("Initialize the testnet account before reading history.");
+  const response = await walletInstance.get_transaction_history(activeAccountId, 25, 0);
+  const transactions = Array.from(response.transactions as Array<any>).map((tx) => ({
+    txid: String(tx.txid ?? ""),
+    type: Number(tx.tx_type ?? -1),
+    value: String(tx.value ?? "0"),
+    fee: tx.fee === undefined ? null : String(tx.fee),
+    blockHeight: tx.block_height === undefined ? null : Number(tx.block_height),
+    confirmations: Number(tx.confirmations ?? 0),
+    status: Number(tx.status ?? -1),
+    memo: tx.memo === undefined ? null : String(tx.memo),
+    timestamp: tx.timestamp === undefined ? null : String(tx.timestamp),
+    pool: String(tx.pool ?? ""),
+  }));
+  return { totalCount: Number(response.total_count ?? transactions.length), transactions };
+}
+
 export async function getTestnetAddress(): Promise<{ unified: string; transparent: string }> {
   if (!walletInstance || activeAccountId === null) throw new Error("Unlock the wallet and initialize the testnet account first.");
   return {
