@@ -12,7 +12,7 @@ for (const file of ["manifest.json", "background.js"]) {
   copyFileSync(source, resolve(distDir, file));
 }
 
-for (const directory of ["assets", "licenses"]) {
+for (const directory of ["assets", "licenses", "icons"]) {
   const source = resolve(publicDir, directory);
   if (existsSync(source)) cpSync(source, resolve(distDir, directory), { recursive: true, force: true });
 }
