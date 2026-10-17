@@ -208,6 +208,9 @@ async function initializeEngineForPhrase(phrase: string) {
     engineState = await createTestnetAccount(phrase, typeof meta.birthdayHeight === "number" ? meta.birthdayHeight : undefined);
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
     status.textContent = "Address derived · sync not verified";
+    const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
+    if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
+    if (statusLabels[2]) statusLabels[2].textContent = "NOT YET VERIFIED";
     panel.querySelector(".engine-panel-head .status-indicator")?.classList.add("status-ready");
     addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
     syncButton.disabled = false;
