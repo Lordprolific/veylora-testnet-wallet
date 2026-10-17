@@ -10,6 +10,10 @@ A small, read-only integration demo using the official Noir Wallet SDK. It is se
 
 Noir documents separate mainnet and testnet extension builds with separate extension IDs and wallet data. This demo cannot independently attest which build is installed. Confirm the testnet build yourself before connecting.
 
+## Hosted demo
+
+Open https://veylora-zcash-dapp-lab.vercel.app to use the deployed read-only demo. A compatible Noir Wallet testnet extension must be installed in the same browser for provider-based connection testing.
+
 ## Run
 
 From this directory:
