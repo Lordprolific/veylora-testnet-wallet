@@ -249,7 +249,7 @@ function formatZatoshis(value: unknown): string {
   const absolute = negative ? -amount : amount;
   const whole = absolute / 100_000_000n;
   const fraction = (absolute % 100_000_000n).toString().padStart(8, "0");
-  return \`${negative ? "-" : ""}${whole.toString()}.${fraction}\`;
+  return `${negative ? "-" : ""}${whole.toString()}.${fraction}`;
 }
 
 function sendView() {
@@ -259,7 +259,7 @@ function sendView() {
     return;
   }
   screen = "send";
-  shell(\`
+  shell(`
     <section class="flow-card narrow">
       <button class="back-link" data-action="vault">← Back to wallet</button>
       <div class="eyebrow">ZCASH TESTNET · SEND</div>
@@ -273,7 +273,7 @@ function sendView() {
         <div class="notice"><span class="notice-icon">!</span><div><strong>Testnet only</strong><p>Check the recipient carefully. Zcash transactions cannot be reversed. Mainnet addresses and funds are not supported in this build.</p></div></div>
         <button class="primary form-submit" type="submit">Calculate fee and review <span>↗</span></button>
       </form>
-    </section>\`);
+    </section>`);
   root!.querySelector<HTMLFormElement>("#send-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const address = root!.querySelector<HTMLTextAreaElement>("#send-address")?.value.trim() ?? "";
@@ -303,7 +303,7 @@ function reviewTransferView() {
   const payments = steps.flatMap((step) => step.payments ?? []);
   const totalFee = BigInt(String(pendingTransferDetails.total_fee_zatoshis));
   const totalAmount = payments.reduce((sum: bigint, payment: any) => sum + BigInt(String(payment.amount_zatoshis ?? "0")), 0n);
-  shell(\`
+  shell(`
     <section class="flow-card narrow">
       <button class="back-link" data-action="cancel-transfer">← Cancel review</button>
       <div class="eyebrow">TRANSACTION REVIEW · STEP 1 OF 2</div>
@@ -312,14 +312,14 @@ function reviewTransferView() {
       <div class="review-panel">
         <div class="review-line"><span>Network</span><strong>Zcash Testnet</strong></div>
         <div class="review-line"><span>Recipient</span><code>${escapeHtml(transferRecipient)}</code></div>
-        ${payments.map((payment: any) => \`<div class="review-line"><span>Payment amount</span><strong>${formatZatoshis(payment.amount_zatoshis)} ZEC</strong></div>${payment.memo_base64 ? \`<div class="review-line"><span>Memo (base64)</span><code>${escapeHtml(String(payment.memo_base64))}</code></div>\` : ""}\`).join("")}
+        ${payments.map((payment: any) => `<div class="review-line"><span>Payment amount</span><strong>${formatZatoshis(payment.amount_zatoshis)} ZEC</strong></div>${payment.memo_base64 ? `<div class="review-line"><span>Memo (base64)</span><code>${escapeHtml(String(payment.memo_base64))}</code></div>` : ""}`).join("")}
         <div class="review-line"><span>Exact fee from wallet engine</span><strong>${formatZatoshis(totalFee)} ZEC</strong></div>
         <div class="review-line total-line"><span>Total debit (amount + fee)</span><strong>${formatZatoshis(totalAmount + totalFee)} ZEC</strong></div>
       </div>
       <label class="check-row"><input type="checkbox" id="confirm-transfer-details" /> I checked the network, recipient, amount, and exact fee. I understand this testnet transaction cannot be reversed.</label>
       <div class="notice danger-notice"><span class="notice-icon">!</span><div><strong>Final approval</strong><p>The next step uses your recovery phrase to authorize the transfer and asks WebZjs to broadcast it. Do not proceed if any detail is wrong.</p></div></div>
       <button class="primary form-submit" data-action="confirm-send" id="confirm-send" disabled>Authorize and broadcast <span>↗</span></button>
-    </section>\`);
+    </section>`);
   const checkbox = root!.querySelector<HTMLInputElement>("#confirm-transfer-details");
   const button = root!.querySelector<HTMLButtonElement>("#confirm-send");
   checkbox?.addEventListener("change", () => { if (button) button.disabled = !checkbox.checked; });
@@ -329,16 +329,16 @@ function sendResultView() {
   screen = "send-result";
   const result = lastTransferResult;
   const txids = result?.txids ?? [];
-  shell(\`
+  shell(`
     <section class="flow-card narrow">
       <div class="eyebrow">ZCASH TESTNET · SEND RESULT</div>
       <h2>${result?.broadcastCompleted ? "Broadcast requested" : "Broadcast outcome unclear"}</h2>
       <p class="flow-copy">${result?.broadcastCompleted ? "The wallet's broadcast call returned successfully. This does not mean the transaction is mined or confirmed." : "The wallet could not confirm the broadcast outcome. Do not immediately retry; sync and inspect transaction history first to avoid duplicate payments."}</p>
-      ${txids.map((txid) => \`<div class="txid-card"><label>Transaction ID</label><code>${escapeHtml(txid)}</code><button class="copy-address" data-action="copy-txid" data-txid="${escapeHtml(txid)}">Copy transaction ID</button></div>\`).join("")}
-      ${result?.broadcastError ? \`<p class="engine-error">${escapeHtml(result.broadcastError)}</p>\` : ""}
+      ${txids.map((txid) => `<div class="txid-card"><label>Transaction ID</label><code>${escapeHtml(txid)}</code><button class="copy-address" data-action="copy-txid" data-txid="${escapeHtml(txid)}">Copy transaction ID</button></div>`).join("")}
+      ${result?.broadcastError ? `<p class="engine-error">${escapeHtml(result.broadcastError)}</p>` : ""}
       <div class="notice"><span class="notice-icon">!</span><div><strong>Not yet confirmed</strong><p>Return to the wallet and sync again to check the transaction's actual status. The displayed ID is not proof of confirmation.</p></div></div>
       <button class="primary form-submit" data-action="vault">Return to wallet</button>
-    </section>\`);
+    </section>`);
 }
 
 async function confirmSend() {
