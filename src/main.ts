@@ -174,17 +174,57 @@ async function vaultView() {
   shell(`
     <section class="flow-card narrow">
       <div class="eyebrow">LOCAL VAULT</div><h2>Vault unlocked</h2>
-      <p class="flow-copy">Your recovery phrase is decrypted in this browser session. The Zcash network engine is not connected yet, so no address or balance is available in this build.</p>
+      <p class="flow-copy">Your recovery phrase is decrypted for this browser session. Veylora will attempt to derive a testnet address locally; balances and payments remain gated on verified synchronization and transaction testing.</p>
       <div class="status-panel">
         <div class="status-row"><span class="status-indicator status-ready"></span><span>Encrypted recovery phrase</span><strong>UNLOCKED</strong></div>
-        <div class="status-row"><span class="status-indicator"></span><span>Zcash account/address</span><strong>NOT YET DERIVED</strong></div>
-        <div class="status-row"><span class="status-indicator"></span><span>Chain sync and payments</span><strong>NOT AVAILABLE</strong></div>
+        <div class="status-row"><span class="status-indicator"></span><span>Zcash account/address</span><strong>INITIALIZING</strong></div>
+        <div class="status-row"><span class="status-indicator"></span><span>Chain sync and payments</span><strong>NOT YET VERIFIED</strong></div>
       </div>
       <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Addresses are derived locally by the pinned WebZjs engine. Do not send funds until synchronization and transaction flows are verified.</p><div id="address-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
       <button class="secondary full-button" data-action="reveal">${phraseVisible ? "Hide recovery phrase" : "Reveal recovery phrase"}</button>
       ${phraseVisible ? `<div class="phrase-reveal"><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></div>` : ""}
       <div class="actions"><button class="secondary" data-action="lock">Lock wallet</button><button class="secondary" data-action="home">Overview</button></div>
     </section>`);
+  void initializeEngineForPhrase(phrase);
+}
+
+async function initializeEngineForPhrase(phrase: string) {
+  const status = root!.querySelector<HTMLElement>("#engine-status");
+  const panel = root!.querySelector<HTMLElement>("#engine-panel");
+  const addressContent = root!.querySelector<HTMLElement>("#address-content");
+  const syncButton = root!.querySelector<HTMLButtonElement>("#sync-button");
+  if (!status || !panel || !addressContent || !syncButton) return;
+  status.textContent = "Initializing local WASM…";
+  syncButton.disabled = true;
+  try {
+    let meta: { birthdayHeight?: number } = {};
+    try { meta = JSON.parse(localStorage.getItem(WALLET_META_KEY) || "{}"); } catch { meta = {}; }
+    engineState = await createTestnetAccount(phrase, typeof meta.birthdayHeight === "number" ? meta.birthdayHeight : undefined);
+    localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
+    status.textContent = "Address derived · sync not verified";
+    panel.querySelector(".engine-panel-head .status-indicator")?.classList.add("status-ready");
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
+    syncButton.disabled = false;
+  } catch (error) {
+    status.textContent = "Engine unavailable";
+    addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Keep your recovery phrase safe. Do not send funds until initialization and synchronization work in Chrome.</p>`;
+    feedback("The recovery phrase is encrypted, but the Zcash engine did not initialize. Do not deposit funds.", true);
+  }
+}
+
+async function runSync() {
+  const status = root!.querySelector<HTMLElement>("#engine-status");
+  const button = root!.querySelector<HTMLButtonElement>("#sync-button");
+  if (!status || !button || engineBusy) return;
+  engineBusy = true; button.disabled = true; status.textContent = "Syncing testnet…";
+  try {
+    const result = await syncTestnetWallet();
+    status.textContent = `Sync returned · tip ${result.chainHeight} · scanned ${result.scannedHeight}`;
+    feedback("WebZjs returned a sync result. Transaction history and balance interpretation still require end-to-end verification.");
+  } catch (error) {
+    status.textContent = "Sync failed";
+    feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
+  } finally { engineBusy = false; button.disabled = false; }
 }
 
 function feedback(message: string, error = false) {
