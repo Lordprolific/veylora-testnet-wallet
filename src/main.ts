@@ -249,7 +249,7 @@ function formatZatoshis(value: unknown): string {
   const absolute = negative ? -amount : amount;
   const whole = absolute / 100_000_000n;
   const fraction = (absolute % 100_000_000n).toString().padStart(8, "0");
-  return \`\${negative ? "-" : ""}\${whole.toString()}.\${fraction}\`;
+  return \`${negative ? "-" : ""}${whole.toString()}.${fraction}\`;
 }
 
 function sendView() {
@@ -311,10 +311,10 @@ function reviewTransferView() {
       <p class="flow-copy">These values come from the WebZjs transaction proposal. Nothing has been signed or broadcast yet.</p>
       <div class="review-panel">
         <div class="review-line"><span>Network</span><strong>Zcash Testnet</strong></div>
-        <div class="review-line"><span>Recipient</span><code>\${escapeHtml(transferRecipient)}</code></div>
-        \${payments.map((payment: any) => \`<div class="review-line"><span>Payment amount</span><strong>\${formatZatoshis(payment.amount_zatoshis)} ZEC</strong></div>\${payment.memo_base64 ? \`<div class="review-line"><span>Memo (base64)</span><code>\${escapeHtml(String(payment.memo_base64))}</code></div>\` : ""}\`).join("")}
-        <div class="review-line"><span>Exact fee from wallet engine</span><strong>\${formatZatoshis(totalFee)} ZEC</strong></div>
-        <div class="review-line total-line"><span>Total debit (amount + fee)</span><strong>\${formatZatoshis(totalAmount + totalFee)} ZEC</strong></div>
+        <div class="review-line"><span>Recipient</span><code>${escapeHtml(transferRecipient)}</code></div>
+        ${payments.map((payment: any) => \`<div class="review-line"><span>Payment amount</span><strong>${formatZatoshis(payment.amount_zatoshis)} ZEC</strong></div>${payment.memo_base64 ? \`<div class="review-line"><span>Memo (base64)</span><code>${escapeHtml(String(payment.memo_base64))}</code></div>\` : ""}\`).join("")}
+        <div class="review-line"><span>Exact fee from wallet engine</span><strong>${formatZatoshis(totalFee)} ZEC</strong></div>
+        <div class="review-line total-line"><span>Total debit (amount + fee)</span><strong>${formatZatoshis(totalAmount + totalFee)} ZEC</strong></div>
       </div>
       <label class="check-row"><input type="checkbox" id="confirm-transfer-details" /> I checked the network, recipient, amount, and exact fee. I understand this testnet transaction cannot be reversed.</label>
       <div class="notice danger-notice"><span class="notice-icon">!</span><div><strong>Final approval</strong><p>The next step uses your recovery phrase to authorize the transfer and asks WebZjs to broadcast it. Do not proceed if any detail is wrong.</p></div></div>
@@ -332,10 +332,10 @@ function sendResultView() {
   shell(\`
     <section class="flow-card narrow">
       <div class="eyebrow">ZCASH TESTNET · SEND RESULT</div>
-      <h2>\${result?.broadcastCompleted ? "Broadcast requested" : "Broadcast outcome unclear"}</h2>
-      <p class="flow-copy">\${result?.broadcastCompleted ? "The wallet's broadcast call returned successfully. This does not mean the transaction is mined or confirmed." : "The wallet could not confirm the broadcast outcome. Do not immediately retry; sync and inspect transaction history first to avoid duplicate payments."}</p>
-      \${txids.map((txid) => \`<div class="txid-card"><label>Transaction ID</label><code>\${escapeHtml(txid)}</code><button class="copy-address" data-action="copy-txid" data-txid="\${escapeHtml(txid)}">Copy transaction ID</button></div>\`).join("")}
-      \${result?.broadcastError ? \`<p class="engine-error">\${escapeHtml(result.broadcastError)}</p>\` : ""}
+      <h2>${result?.broadcastCompleted ? "Broadcast requested" : "Broadcast outcome unclear"}</h2>
+      <p class="flow-copy">${result?.broadcastCompleted ? "The wallet's broadcast call returned successfully. This does not mean the transaction is mined or confirmed." : "The wallet could not confirm the broadcast outcome. Do not immediately retry; sync and inspect transaction history first to avoid duplicate payments."}</p>
+      ${txids.map((txid) => \`<div class="txid-card"><label>Transaction ID</label><code>${escapeHtml(txid)}</code><button class="copy-address" data-action="copy-txid" data-txid="${escapeHtml(txid)}">Copy transaction ID</button></div>\`).join("")}
+      ${result?.broadcastError ? \`<p class="engine-error">${escapeHtml(result.broadcastError)}</p>\` : ""}
       <div class="notice"><span class="notice-icon">!</span><div><strong>Not yet confirmed</strong><p>Return to the wallet and sync again to check the transaction's actual status. The displayed ID is not proof of confirmation.</p></div></div>
       <button class="primary form-submit" data-action="vault">Return to wallet</button>
     </section>\`);
