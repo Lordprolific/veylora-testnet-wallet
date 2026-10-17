@@ -2,15 +2,17 @@
 
 ## Product definition
 
-Veylora is intended to become a standalone, self-custodial Zcash wallet distributed as a Chrome Manifest V3 extension. It must not require Noir Wallet, and it must not be a dApp scanner or a provider wrapper.
+Veylora is intended to become a standalone, self-custodial Zcash wallet distributed as a Chrome Manifest V3 extension. It must not require Noir Wallet, and it must not be a dApp scanner or provider wrapper.
 
 The extension should eventually support wallet creation and recovery, local encrypted key storage, transparent and shielded addresses, balance synchronization, receive QR codes, reviewed outgoing payments, transaction history, network separation, account locking, and secure recovery.
 
-## Engine decision
+## Engine decision and current blocker
 
 Candidate: [ChainSafe WebZjs](https://github.com/ChainSafe/WebZjs), an open-source JavaScript/WebAssembly Zcash wallet engine. Its documentation describes browser wallet support, seed-based account creation, lightwalletd synchronization, and shielded transaction proving. The repository offers MIT/Apache-2.0 licensing options.
 
-Upstream README explicitly warns that the library is under development and unaudited. Its issue tracker also contains an open Manifest V3 content-security-policy/sync compatibility issue. Therefore, adopting WebZjs is a starting point for engineering and testing, not proof that a secure production wallet is ready.
+**Important integration detail:** the WebZjs wallet and keys packages are built from the Rust/WASM source in the upstream repository using its build tooling. They were not available at the expected public npm registry package names when CI attempted installation (npm returned E404). The unused npm dependencies have therefore been removed from this shell so the UI/build pipeline can run; this does not mean WebZjs is integrated. The next engine step is to establish a reproducible upstream source/WASM build, verify package outputs and licensing, then integrate those locally built artifacts.
+
+Upstream warns that the library is under development and unaudited. Its issue tracker also contains an open Manifest V3 content-security-policy/sync compatibility issue and a send-transaction issue. Adopting WebZjs is a starting point for engineering and testing, not proof that a secure production wallet is ready.
 
 Reference material:
 - https://github.com/ChainSafe/WebZjs
@@ -36,12 +38,13 @@ Reference material:
 
 ### Phase 1 — wallet shell and reproducible build
 - Replace the old provider-demo action with a standalone full-tab wallet.
-- Establish a build pipeline that bundles all extension scripts locally; no remotely hosted executable code.
+- Bundle all extension scripts locally; no remotely hosted executable code.
 - Keep the existing dApp lab as a separate developer tool, not as the wallet's backend.
 - Pin dependencies and add software-license notices.
 
 ### Phase 2 — cryptographic wallet lifecycle
-- Initialize the WebAssembly engine once.
+- Build and pin the upstream WebZjs Rust/WASM packages reproducibly, with documented toolchain versions.
+- Initialize the WebAssembly engine exactly once.
 - Implement create/import and seed phrase verification using the engine's supported key derivation.
 - Add password-based encryption and encrypted local persistence.
 - Verify unlock, lock, restart, backup, and restore behavior with test vectors.
@@ -66,4 +69,6 @@ Reference material:
 
 ## Current status
 
-This branch starts the standalone extension entry point and build foundation. It does not yet constitute a functional wallet. Wallet creation, recovery, encrypted persistence, address derivation, synchronization, transaction proving, and sending must be implemented and verified before public release.
+The standalone extension shell now passes its GitHub Actions build and package-file checks. The earlier npm E404 was caused by depending on WebZjs packages that are not published under the expected public npm names. Those unused dependencies were removed so the shell's build is no longer blocked by that error.
+
+**This is still not a functional wallet.** Wallet creation, recovery, encrypted persistence, address derivation, synchronization, transaction proving, and sending have not been implemented or verified. The extension must not be used to store funds or be submitted to the Chrome Web Store yet.
