@@ -29,7 +29,7 @@ Run npm test for the presentation-helper tests and npm run build to type-check a
 - Displays shortened provider-returned transparent and shielded addresses and a balance summary.
 - Does not create, sign, or broadcast transactions.
 
-The app does not ask for seed phrases or private keys and does not send wallet data to analytics services.
+The app does not ask for seed phrases or private keys, does not send wallet data to analytics services, and does not load third-party fonts.
 
 ## References
 
