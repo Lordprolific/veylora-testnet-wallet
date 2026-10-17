@@ -44,10 +44,11 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rust-src
 
-      - name: Install wasm-pack and just
+      - name: Install build utilities with stable Rust
         run: |
-          cargo install wasm-pack --locked
-          cargo install just --locked
+          rustup toolchain install stable --profile minimal
+          cargo +stable install wasm-pack --locked
+          cargo +stable install just --locked
 
       - name: Build WebZjs WASM packages
         working-directory: .engine/WebZjs
