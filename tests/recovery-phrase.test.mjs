@@ -15,7 +15,7 @@ test("generated recovery phrases are not repeated", () => {
 });
 
 test("invalid phrase is rejected", () => {
-  assert.throws(() => validateRecoveryPhrase("one two three"), /valid 24-word BIP-39 phrase/);
+  assert.throws(() => validateRecoveryPhrase("one two three"), /must contain 24 words/);
 });
 
 test("valid phrase with wrong word count is rejected", () => {
