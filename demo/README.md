@@ -19,7 +19,7 @@ From this directory:
 3. Open the local URL shown by Vite.
 4. Use Connect wallet and approve the request in the wallet.
 
-Run npm run build to check the production build.
+Run npm test for the presentation-helper tests and npm run build to type-check and create the production build.
 
 ## Current scope
 
