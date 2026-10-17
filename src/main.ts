@@ -1,5 +1,5 @@
 import "./style.css";
-import { createTestnetAccount, syncTestnetWallet, getTestnetAddress, releaseTestnetWallet } from "./wallet/zcash-engine.js";
+import { createTestnetAccount, restoreTestnetAccount, syncTestnetWallet, releaseTestnetWallet } from "./wallet/zcash-engine.js";
 
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number } | null = null;
@@ -13,6 +13,9 @@ import {
   unlockVault,
   getUnlockedRecoveryPhrase,
   lockVault,
+  persistEncryptedWalletDatabase,
+  getUnlockedWalletDatabase,
+  verifyWalletPassword,
 } from "./wallet/lifecycle.js";
 
 const root = document.querySelector<HTMLDivElement>("#app");
@@ -136,7 +139,7 @@ function passwordView(mode: "create" | "restore") {
       localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: mode === "restore" ? 0 : null }));
       pendingPhrase = "";
       screen = "vault";
-      await vaultView();
+      await vaultView(password);
       feedback(mode === "create" ? "Encrypted vault created. Initializing the testnet account…" : "Recovery phrase encrypted. Restoring the testnet account…");
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Could not save the encrypted vault.", true);
@@ -162,13 +165,13 @@ function unlockView() {
     try {
       await unlockVault(password);
       screen = "vault";
-      await vaultView();
+      await vaultView(password);
       feedback("Vault unlocked for this browser session.");
     } catch (error) { feedback(error instanceof Error ? error.message : "Could not unlock the vault.", true); }
   });
 }
 
-async function vaultView() {
+async function vaultView(password?: string) {
   const phrase = getUnlockedRecoveryPhrase();
   if (!phrase) { screen = "home"; return homeView(); }
   shell(`
@@ -185,10 +188,10 @@ async function vaultView() {
       ${phraseVisible ? `<div class="phrase-reveal"><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></div>` : ""}
       <div class="actions"><button class="secondary" data-action="lock">Lock wallet</button><button class="secondary" data-action="home">Overview</button></div>
     </section>`);
-  void initializeEngineForPhrase(phrase);
+  void initializeEngineForPhrase(phrase, password);
 }
 
-async function initializeEngineForPhrase(phrase: string) {
+async function initializeEngineForPhrase(phrase: string, password?: string) {
   const status = root!.querySelector<HTMLElement>("#engine-status");
   const panel = root!.querySelector<HTMLElement>("#engine-panel");
   const addressContent = root!.querySelector<HTMLElement>("#address-content");
@@ -203,9 +206,15 @@ async function initializeEngineForPhrase(phrase: string) {
   status.textContent = "Initializing local WASM…";
   syncButton.disabled = true;
   try {
-    let meta: { birthdayHeight?: number } = {};
+    let meta: { birthdayHeight?: number; accountId?: number } = {};
     try { meta = JSON.parse(localStorage.getItem(WALLET_META_KEY) || "{}"); } catch { meta = {}; }
-    engineState = await createTestnetAccount(phrase, typeof meta.birthdayHeight === "number" ? meta.birthdayHeight : undefined);
+    const savedDatabase = getUnlockedWalletDatabase();
+    if (savedDatabase) {
+      engineState = await restoreTestnetAccount(savedDatabase.database, savedDatabase.accountId);
+    } else {
+      engineState = await createTestnetAccount(phrase, typeof meta.birthdayHeight === "number" ? meta.birthdayHeight : undefined);
+      if (password) await persistEncryptedWalletDatabase(engineState.database, engineState.accountId, password);
+    }
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
     status.textContent = "Address derived · sync not verified";
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
@@ -227,9 +236,13 @@ async function runSync() {
   if (!status || !button || engineBusy) return;
   engineBusy = true; button.disabled = true; status.textContent = "Syncing testnet…";
   try {
+    const password = window.prompt("Enter your wallet password to encrypt and save the updated testnet wallet database on this device.");
+    if (!password) { status.textContent = "Sync cancelled"; return; }
+    await verifyWalletPassword(password);
     const result = await syncTestnetWallet();
+    await persistEncryptedWalletDatabase(result.database, engineState?.accountId ?? -1, password);
     status.textContent = `Sync returned · tip ${result.chainHeight} · scanned ${result.scannedHeight}`;
-    feedback("WebZjs returned a sync result. Transaction history and balance interpretation still require end-to-end verification.");
+    feedback("Sync state was encrypted and saved locally. Balance and transaction status still require end-to-end verification.");
   } catch (error) {
     status.textContent = "Sync failed";
     feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
