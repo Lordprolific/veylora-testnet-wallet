@@ -1,0 +1,27 @@
+name: Local vault security tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/security/**"
+      - "tests/**"
+      - "package.json"
+      - ".github/workflows/vault-security-tests.yml"
+  push:
+    branches: [feat/testnet-wallet-secure-vault]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vault-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run encrypted-vault tests
+        run: npm run test:security
