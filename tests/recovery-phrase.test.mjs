@@ -19,6 +19,6 @@ test("invalid phrase is rejected", () => {
 });
 
 test("valid phrase with wrong word count is rejected", () => {
-  const phrase = createRecoveryPhrase().split(" ").slice(0, 12).join(" ");
+  const phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
   assert.throws(() => validateRecoveryPhrase(phrase), /must contain 24 words/);
 });
