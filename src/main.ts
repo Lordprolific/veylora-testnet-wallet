@@ -71,7 +71,7 @@ function homeView() {
         <div class="status-row"><span class="status-indicator ${exists ? "status-ready" : ""}"></span><span>Local encrypted vault</span><strong>${exists ? (unlocked ? "UNLOCKED" : "LOCKED") : "NOT SET UP"}</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Zcash testnet engine</span><strong>INTEGRATION IN PROGRESS</strong></div>
       </div>
-      <div class="notice"><span class="notice-icon">!</span><div><strong>Do not deposit testnet funds yet</strong><p>Recovery phrase vault setup is implemented, but address derivation, chain synchronization, balances, and sending still require WebZjs integration and end-to-end tests. Send and Receive remain disabled until then.</p></div></div>
+      <div class="notice"><span class="notice-icon">!</span><div><strong>Do not deposit testnet funds yet</strong><p>The local vault and initial WebZjs testnet adapter are in active verification. Do not deposit funds until Chrome extension initialization, sync, database recovery, receiving, and sending have passed end-to-end tests. Send remains disabled.</p></div></div>
       <div class="actions">
         ${exists
           ? (unlocked
@@ -267,7 +267,9 @@ async function runSync() {
   const status = root!.querySelector<HTMLElement>("#engine-status");
   const button = root!.querySelector<HTMLButtonElement>("#sync-button");
   if (!status || !button || engineBusy) return;
-  engineBusy = true; button.disabled = true; status.textContent = "Syncing testnet…";
+  engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Syncing testnet…";
+  const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+  if (receiveNav) { receiveNav.disabled = true; receiveNav.classList.add("disabled-nav"); }
   try {
     const password = window.prompt("Enter your wallet password to encrypt and save the updated testnet wallet database on this device.");
     if (!password) { status.textContent = "Sync cancelled"; return; }
