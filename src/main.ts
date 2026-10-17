@@ -1,4 +1,9 @@
 import "./style.css";
+import { createTestnetAccount, syncTestnetWallet, getTestnetAddress, releaseTestnetWallet } from "./wallet/zcash-engine.js";
+
+const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
+let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number } | null = null;
+let engineBusy = false;
 import {
   createRecoveryPhrase,
   validateRecoveryPhrase,
@@ -128,10 +133,11 @@ function passwordView(mode: "create" | "restore") {
     try {
       if (mode === "create") await createEncryptedVault(phrase, password);
       else await restoreEncryptedVault(phrase, password, !vaultExists() || Boolean(root!.querySelector<HTMLInputElement>("#replace-existing")?.checked));
+      localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: mode === "restore" ? 0 : null }));
       pendingPhrase = "";
       screen = "vault";
-      vaultView();
-      feedback("Encrypted vault created on this device.");
+      await vaultView();
+      feedback(mode === "create" ? "Encrypted vault created. Initializing the testnet account…" : "Recovery phrase encrypted. Restoring the testnet account…");
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Could not save the encrypted vault.", true);
     } finally { busy = false; }
@@ -156,13 +162,13 @@ function unlockView() {
     try {
       await unlockVault(password);
       screen = "vault";
-      vaultView();
+      await vaultView();
       feedback("Vault unlocked for this browser session.");
     } catch (error) { feedback(error instanceof Error ? error.message : "Could not unlock the vault.", true); }
   });
 }
 
-function vaultView() {
+async function vaultView() {
   const phrase = getUnlockedRecoveryPhrase();
   if (!phrase) { screen = "home"; return homeView(); }
   shell(`
@@ -174,6 +180,7 @@ function vaultView() {
         <div class="status-row"><span class="status-indicator"></span><span>Zcash account/address</span><strong>NOT YET DERIVED</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Chain sync and payments</span><strong>NOT AVAILABLE</strong></div>
       </div>
+      <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Addresses are derived locally by the pinned WebZjs engine. Do not send funds until synchronization and transaction flows are verified.</p><div id="address-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
       <button class="secondary full-button" data-action="reveal">${phraseVisible ? "Hide recovery phrase" : "Reveal recovery phrase"}</button>
       ${phraseVisible ? `<div class="phrase-reveal"><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></div>` : ""}
       <div class="actions"><button class="secondary" data-action="lock">Lock wallet</button><button class="secondary" data-action="home">Overview</button></div>
@@ -185,6 +192,21 @@ function feedback(message: string, error = false) {
   if (!element) return;
   element.textContent = message;
   element.className = `feedback visible ${error ? "error" : "success"}`;
+}
+
+async function runSync() {
+  const status = root!.querySelector<HTMLElement>("#engine-status");
+  const button = root!.querySelector<HTMLButtonElement>("#sync-button");
+  if (!status || !button || engineBusy) return;
+  engineBusy = true; button.disabled = true; status.textContent = "Syncing testnet…";
+  try {
+    const result = await syncTestnetWallet();
+    status.textContent = `Sync call completed · tip ${result.chainHeight} · scanned ${result.scannedHeight}`;
+    feedback("WebZjs sync returned. Confirm scan progress and transaction history before using this wallet.");
+  } catch (error) {
+    status.textContent = "Sync failed";
+    feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
+  } finally { engineBusy = false; button.disabled = false; }
 }
 
 root.addEventListener("click", (event) => {
@@ -201,8 +223,10 @@ root.addEventListener("click", (event) => {
   else if (action === "restore") { screen = "restore"; passwordView("restore"); }
   else if (action === "unlock") { screen = "unlock"; unlockView(); }
   else if (action === "vault") { screen = "vault"; vaultView(); }
-  else if (action === "reveal") { phraseVisible = !phraseVisible; vaultView(); }
-  else if (action === "lock") { lockVault(); phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
+  else if (action === "reveal") { phraseVisible = !phraseVisible; void vaultView(); }
+  else if (action === "copy-address" || action === "copy-transparent") { const address = action === "copy-address" ? engineState?.unifiedAddress : engineState?.transparentAddress; if (address) navigator.clipboard.writeText(address).then(() => feedback("Address copied."), () => feedback("Could not copy address. Select and copy it manually.", true)); }
+  else if (action === "sync") { void runSync(); }
+  else if (action === "lock") { lockVault(); releaseTestnetWallet(); engineState = null; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
 });
 
 homeView();
