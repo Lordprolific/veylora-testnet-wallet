@@ -42,3 +42,9 @@ test("rejects weak passwords, empty secrets, and unknown envelope versions", asy
     /Unsupported or invalid/,
   );
 });
+
+test("supports encrypted database-sized payloads above the former small-secret limit", async () => {
+  const secret = "x".repeat(120_000);
+  const envelope = await encryptVaultSecret(secret, password);
+  assert.equal((await decryptVaultSecret(envelope, password)).length, secret.length);
+});
