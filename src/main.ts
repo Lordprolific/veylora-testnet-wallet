@@ -282,6 +282,8 @@ function sendView() {
     const [whole, fractional = ""] = amountText.split(".");
     const zatoshis = BigInt(whole) * 100_000_000n + BigInt((fractional + "00000000").slice(0, 8));
     if (zatoshis <= 0n) return feedback("The amount must be greater than zero.", true);
+    if (engineBusy) return;
+    engineBusy = true;
     const submit = root!.querySelector<HTMLButtonElement>('#send-form button[type="submit"]');
     if (submit) { submit.disabled = true; submit.textContent = "Calculating exact fee…"; }
     try {
@@ -292,7 +294,7 @@ function sendView() {
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Could not prepare a reviewable transfer.", true);
       if (submit) { submit.disabled = false; submit.innerHTML = 'Calculate fee and review <span>↗</span>'; }
-    }
+    } finally { engineBusy = false; }
   });
 }
 
@@ -458,6 +460,10 @@ root.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action]");
   if (!button) return;
   const action = button.dataset.action;
+  if (engineBusy && action && ["home", "vault", "receive", "send", "cancel-transfer", "create", "restore", "unlock", "reveal"].includes(action)) {
+    feedback("Wait for the active wallet operation to finish before navigating away.", true);
+    return;
+  }
   if (action === "home") { screen = "home"; phraseVisible = false; homeView(); }
   else if (action === "create") {
     if (vaultExists()) return feedback("A vault already exists. Unlock it or restore only after safely removing the existing vault.", true);
