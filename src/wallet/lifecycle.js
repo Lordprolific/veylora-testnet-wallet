@@ -3,9 +3,9 @@ import { wordlist } from "@scure/bip39/wordlists/english.js";
 import { encryptVaultSecret, decryptVaultSecret } from "../security/vault.js";
 
 const VAULT_KEY = "veylora.encrypted-vault.v1";
-const SESSION_KEY = "veylora.session-seed.v1";
 const DB_KEY = "veylora.encrypted-wallet-db.v1";
-const DB_SESSION_KEY = "veylora.session-wallet-db.v1";
+let unlockedPhrase = null;
+let unlockedDatabase = null;
 
 /** Generate 24 BIP-39 words using the browser's cryptographically secure RNG. */
 export function createRecoveryPhrase() {
@@ -35,7 +35,8 @@ export async function createEncryptedVault(phrase, password) {
   const normalized = validateRecoveryPhrase(phrase);
   const envelope = await encryptVaultSecret(normalized, password);
   localStorage.setItem(VAULT_KEY, JSON.stringify(envelope));
-  sessionStorage.setItem(SESSION_KEY, normalized);
+  unlockedPhrase = normalized;
+  unlockedDatabase = null;
   return true;
 }
 
@@ -47,19 +48,12 @@ export async function persistEncryptedWalletDatabase(database, accountId, passwo
   const payload = JSON.stringify({ accountId, database: btoa(binary) });
   const envelope = await encryptVaultSecret(payload, password);
   localStorage.setItem(DB_KEY, JSON.stringify(envelope));
-  sessionStorage.setItem(DB_SESSION_KEY, payload);
+  unlockedDatabase = { accountId, database: new Uint8Array(database) };
 }
 
 export function getUnlockedWalletDatabase() {
-  const payload = sessionStorage.getItem(DB_SESSION_KEY);
-  if (!payload) return null;
-  try {
-    const parsed = JSON.parse(payload);
-    const binary = atob(parsed.database);
-    const database = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    if (!Number.isInteger(parsed.accountId) || parsed.accountId < 0 || database.length === 0) return null;
-    return { accountId: parsed.accountId, database };
-  } catch { return null; }
+  if (!unlockedDatabase) return null;
+  return { accountId: unlockedDatabase.accountId, database: new Uint8Array(unlockedDatabase.database) };
 }
 
 export async function restoreEncryptedVault(phrase, password, replaceExisting = false) {
@@ -67,9 +61,9 @@ export async function restoreEncryptedVault(phrase, password, replaceExisting = 
   const normalized = validateRecoveryPhrase(phrase);
   const envelope = await encryptVaultSecret(normalized, password);
   localStorage.setItem(VAULT_KEY, JSON.stringify(envelope));
-  sessionStorage.setItem(SESSION_KEY, normalized);
-  sessionStorage.removeItem(DB_SESSION_KEY);
   localStorage.removeItem(DB_KEY);
+  unlockedPhrase = normalized;
+  unlockedDatabase = null;
   return true;
 }
 
@@ -83,17 +77,22 @@ export async function unlockVault(password) {
     throw new Error("The local vault is damaged. Do not overwrite it; restore from your recovery phrase.");
   }
   const phrase = validateRecoveryPhrase(await decryptVaultSecret(envelope, password));
-  sessionStorage.setItem(SESSION_KEY, phrase);
-  sessionStorage.removeItem(DB_SESSION_KEY);
+  unlockedPhrase = phrase;
+  unlockedDatabase = null;
   const databaseEnvelope = localStorage.getItem(DB_KEY);
   if (databaseEnvelope) {
     try {
       const databasePayload = await decryptVaultSecret(JSON.parse(databaseEnvelope), password);
       const parsed = JSON.parse(databasePayload);
-      if (Number.isInteger(parsed.accountId) && parsed.accountId >= 0 && typeof parsed.database === "string") {
-        sessionStorage.setItem(DB_SESSION_KEY, databasePayload);
+      if (!Number.isInteger(parsed.accountId) || parsed.accountId < 0 || typeof parsed.database !== "string") {
+        throw new Error("Invalid encrypted wallet database payload.");
       }
+      const binary = atob(parsed.database);
+      const database = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      if (database.length === 0) throw new Error("Empty wallet database.");
+      unlockedDatabase = { accountId: parsed.accountId, database };
     } catch {
+      unlockedPhrase = null;
       throw new Error("The encrypted wallet database could not be unlocked. Do not overwrite it; restore using your recovery phrase.");
     }
   }
@@ -112,16 +111,16 @@ export async function verifyWalletPassword(password) {
 }
 
 export function getUnlockedRecoveryPhrase() {
-  const phrase = sessionStorage.getItem(SESSION_KEY);
-  return phrase ? validateRecoveryPhrase(phrase) : null;
+  return unlockedPhrase ? validateRecoveryPhrase(unlockedPhrase) : null;
 }
 
 export function lockVault() {
-  sessionStorage.removeItem(SESSION_KEY);
-  sessionStorage.removeItem(DB_SESSION_KEY);
+  unlockedPhrase = null;
+  unlockedDatabase = null;
 }
 
 export function deleteLocalVault() {
   lockVault();
   localStorage.removeItem(VAULT_KEY);
+  localStorage.removeItem(DB_KEY);
 }
