@@ -18,7 +18,7 @@ export function isSupportedTestnetAddress(address: string): boolean {
 }
 
 export function isValidZecAmount(amount: string): boolean {
-  return /^(?:0|[1-9]\\d*)(?:\\.\\d{1,8})?$/.test(amount.trim()) && Number(amount) > 0 && Number.isFinite(Number(amount));
+  return /^(?:0|[1-9]\d*)(?:\.\d{1,8})?$/.test(amount.trim()) && Number(amount) > 0 && Number.isFinite(Number(amount));
 }
 
 export function memoByteLength(memo: string): number {
