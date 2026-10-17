@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "src/security/**"
+      - "src/wallet/**"
       - "tests/**"
       - "package.json"
       - ".github/workflows/vault-security-tests.yml"
@@ -23,5 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
       - name: Run encrypted-vault tests
         run: npm run test:security
