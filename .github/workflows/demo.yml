@@ -28,6 +28,10 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Inspect dependency advisories
+        run: |
+          npm audit --json > audit-report.json || true
+          node -e 'const a=JSON.parse(require("fs").readFileSync("audit-report.json","utf8")); console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, vulnerabilities:Object.entries(a.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,range:v.range,fixAvailable:v.fixAvailable,via:v.via.map(x=>typeof x==="string"?x:{name:x.name,title:x.title,url:x.url,range:x.range})}))},null,2))'
       - name: Run presentation tests
         run: npm test
       - name: Type-check and build
