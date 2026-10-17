@@ -1,12 +1,16 @@
 import "./style.css";
 import QRCode from "qrcode";
-import { createTestnetAccount, restoreTestnetAccount, syncTestnetWallet, getTestnetHistory, releaseTestnetWallet } from "./wallet/zcash-engine.js";
+import { createTestnetAccount, restoreTestnetAccount, syncTestnetWallet, getTestnetHistory, prepareTestnetTransfer, cancelPendingTestnetTransfer, authorizeAndBroadcastTestnetTransfer, getTestnetDatabase, releaseTestnetWallet } from "./wallet/zcash-engine.js";
 
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
 let engineBusy = false;
 let lifecycleGeneration = 0;
 let syncVerified = false;
+let pendingTransferDetails: any = null;
+let transferRecipient = "";
+let transferAmountZatoshis = 0n;
+let lastTransferResult: { txids: string[]; broadcastCompleted: boolean; broadcastError: string | null } | null = null;
 import {
   createRecoveryPhrase,
   validateRecoveryPhrase,
@@ -24,7 +28,7 @@ import {
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("Wallet root element is missing");
 
-type Screen = "home" | "create-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive";
+type Screen = "home" | "create-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive" | "send" | "send-review" | "send-result";
 let screen: Screen = "home";
 let pendingPhrase = "";
 let phraseVisible = false;
@@ -41,7 +45,7 @@ function shell(content: string) {
         <div class="brand"><img src="./assets/veylora-mark.svg" alt="" /><span>VEY LORA</span></div>
         <div class="rail-label">WALLET</div>
         <button class="nav ${screen === "home" ? "active" : ""}" data-action="home"><span>◈</span> Overview</button>
-        <button class="nav disabled-nav" disabled title="Available after wallet engine integration"><span>↗</span> Send</button>
+        <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Sync the testnet wallet before sending"}><span>↗</span> Send</button>
         <button class="nav ${screen === "receive" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="receive" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Show verified testnet receive address" : "Sync the testnet wallet before receiving funds"}><span>＋</span> Receive</button>
         <button class="nav disabled-nav" disabled title="Available after wallet engine integration"><span>↻</span> Activity</button>
         <div class="rail-bottom"><div class="secure-dot"></div><span>Encrypted local vault</span></div>
@@ -238,6 +242,131 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
 }
 
 
+
+function formatZatoshis(value: unknown): string {
+  const amount = BigInt(String(value ?? "0"));
+  const negative = amount < 0n;
+  const absolute = negative ? -amount : amount;
+  const whole = absolute / 100_000_000n;
+  const fraction = (absolute % 100_000_000n).toString().padStart(8, "0");
+  return \`\${negative ? "-" : ""}\${whole.toString()}.\${fraction}\`;
+}
+
+function sendView() {
+  if (!syncVerified || !engineState || !getUnlockedRecoveryPhrase()) {
+    screen = "vault";
+    void vaultView();
+    return;
+  }
+  screen = "send";
+  shell(\`
+    <section class="flow-card narrow">
+      <button class="back-link" data-action="vault">← Back to wallet</button>
+      <div class="eyebrow">ZCASH TESTNET · SEND</div>
+      <h2>Send ZEC</h2>
+      <p class="flow-copy">Enter the recipient and amount. Veylora will ask WebZjs to calculate the exact transaction fee, then show the complete proposal for your approval before signing or broadcasting.</p>
+      <form id="send-form">
+        <label class="field-label" for="send-address">Recipient Zcash address</label>
+        <textarea id="send-address" rows="3" autocomplete="off" spellcheck="false" required placeholder="Paste a Zcash testnet address"></textarea>
+        <label class="field-label" for="send-amount">Amount (ZEC)</label>
+        <input id="send-amount" type="text" inputmode="decimal" autocomplete="off" required placeholder="0.00000000" pattern="(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,8})?" />
+        <div class="notice"><span class="notice-icon">!</span><div><strong>Testnet only</strong><p>Check the recipient carefully. Zcash transactions cannot be reversed. Mainnet addresses and funds are not supported in this build.</p></div></div>
+        <button class="primary form-submit" type="submit">Calculate fee and review <span>↗</span></button>
+      </form>
+    </section>\`);
+  root!.querySelector<HTMLFormElement>("#send-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const address = root!.querySelector<HTMLTextAreaElement>("#send-address")?.value.trim() ?? "";
+    const amountText = root!.querySelector<HTMLInputElement>("#send-amount")?.value.trim() ?? "";
+    if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,8})?$/.test(amountText)) return feedback("Enter a valid ZEC amount with no more than 8 decimal places.", true);
+    const [whole, fractional = ""] = amountText.split(".");
+    const zatoshis = BigInt(whole) * 100_000_000n + BigInt((fractional + "00000000").slice(0, 8));
+    if (zatoshis <= 0n) return feedback("The amount must be greater than zero.", true);
+    const submit = root!.querySelector<HTMLButtonElement>('#send-form button[type="submit"]');
+    if (submit) { submit.disabled = true; submit.textContent = "Calculating exact fee…"; }
+    try {
+      transferRecipient = address;
+      transferAmountZatoshis = zatoshis;
+      pendingTransferDetails = await prepareTestnetTransfer(address, zatoshis);
+      reviewTransferView();
+    } catch (error) {
+      feedback(error instanceof Error ? error.message : "Could not prepare a reviewable transfer.", true);
+      if (submit) { submit.disabled = false; submit.innerHTML = 'Calculate fee and review <span>↗</span>'; }
+    }
+  });
+}
+
+function reviewTransferView() {
+  if (!pendingTransferDetails) { screen = "send"; return sendView(); }
+  screen = "send-review";
+  const steps = pendingTransferDetails.steps as Array<any>;
+  const payments = steps.flatMap((step) => step.payments ?? []);
+  const totalFee = BigInt(String(pendingTransferDetails.total_fee_zatoshis));
+  const totalAmount = payments.reduce((sum: bigint, payment: any) => sum + BigInt(String(payment.amount_zatoshis ?? "0")), 0n);
+  shell(\`
+    <section class="flow-card narrow">
+      <button class="back-link" data-action="cancel-transfer">← Cancel review</button>
+      <div class="eyebrow">TRANSACTION REVIEW · STEP 1 OF 2</div>
+      <h2>Review before signing</h2>
+      <p class="flow-copy">These values come from the WebZjs transaction proposal. Nothing has been signed or broadcast yet.</p>
+      <div class="review-panel">
+        <div class="review-line"><span>Network</span><strong>Zcash Testnet</strong></div>
+        <div class="review-line"><span>Recipient</span><code>\${escapeHtml(transferRecipient)}</code></div>
+        \${payments.map((payment: any) => \`<div class="review-line"><span>Payment amount</span><strong>\${formatZatoshis(payment.amount_zatoshis)} ZEC</strong></div>\${payment.memo_base64 ? \`<div class="review-line"><span>Memo (base64)</span><code>\${escapeHtml(String(payment.memo_base64))}</code></div>\` : ""}\`).join("")}
+        <div class="review-line"><span>Exact fee from wallet engine</span><strong>\${formatZatoshis(totalFee)} ZEC</strong></div>
+        <div class="review-line total-line"><span>Total debit (amount + fee)</span><strong>\${formatZatoshis(totalAmount + totalFee)} ZEC</strong></div>
+      </div>
+      <label class="check-row"><input type="checkbox" id="confirm-transfer-details" /> I checked the network, recipient, amount, and exact fee. I understand this testnet transaction cannot be reversed.</label>
+      <div class="notice danger-notice"><span class="notice-icon">!</span><div><strong>Final approval</strong><p>The next step uses your recovery phrase to authorize the transfer and asks WebZjs to broadcast it. Do not proceed if any detail is wrong.</p></div></div>
+      <button class="primary form-submit" data-action="confirm-send" id="confirm-send" disabled>Authorize and broadcast <span>↗</span></button>
+    </section>\`);
+  const checkbox = root!.querySelector<HTMLInputElement>("#confirm-transfer-details");
+  const button = root!.querySelector<HTMLButtonElement>("#confirm-send");
+  checkbox?.addEventListener("change", () => { if (button) button.disabled = !checkbox.checked; });
+}
+
+function sendResultView() {
+  screen = "send-result";
+  const result = lastTransferResult;
+  const txids = result?.txids ?? [];
+  shell(\`
+    <section class="flow-card narrow">
+      <div class="eyebrow">ZCASH TESTNET · SEND RESULT</div>
+      <h2>\${result?.broadcastCompleted ? "Broadcast requested" : "Broadcast outcome unclear"}</h2>
+      <p class="flow-copy">\${result?.broadcastCompleted ? "The wallet's broadcast call returned successfully. This does not mean the transaction is mined or confirmed." : "The wallet could not confirm the broadcast outcome. Do not immediately retry; sync and inspect transaction history first to avoid duplicate payments."}</p>
+      \${txids.map((txid) => \`<div class="txid-card"><label>Transaction ID</label><code>\${escapeHtml(txid)}</code><button class="copy-address" data-action="copy-txid" data-txid="\${escapeHtml(txid)}">Copy transaction ID</button></div>\`).join("")}
+      \${result?.broadcastError ? \`<p class="engine-error">\${escapeHtml(result.broadcastError)}</p>\` : ""}
+      <div class="notice"><span class="notice-icon">!</span><div><strong>Not yet confirmed</strong><p>Return to the wallet and sync again to check the transaction's actual status. The displayed ID is not proof of confirmation.</p></div></div>
+      <button class="primary form-submit" data-action="vault">Return to wallet</button>
+    </section>\`);
+}
+
+async function confirmSend() {
+  if (!pendingTransferDetails || !getUnlockedRecoveryPhrase()) return feedback("Unlock the wallet and prepare a transfer first.", true);
+  const password = window.prompt("Enter your wallet password to authorize the transfer and encrypt updated wallet state.");
+  if (!password) return;
+  const button = root!.querySelector<HTMLButtonElement>("#confirm-send");
+  if (button) { button.disabled = true; button.textContent = "Proving and authorizing…"; }
+  try {
+    await verifyWalletPassword(password);
+    const phrase = getUnlockedRecoveryPhrase();
+    if (!phrase) throw new Error("The wallet was locked before authorization.");
+    const result = await authorizeAndBroadcastTestnetTransfer(phrase);
+    await persistEncryptedWalletDatabase(result.database, engineState?.accountId ?? -1, password);
+    lastTransferResult = result;
+    pendingTransferDetails = null;
+    syncVerified = false;
+    sendResultView();
+  } catch (error) {
+    try {
+      const database = await getTestnetDatabase();
+      await persistEncryptedWalletDatabase(database, engineState?.accountId ?? -1, password);
+    } catch { /* Preserve the original transfer error; the last encrypted snapshot remains intact. */ }
+    feedback(error instanceof Error ? error.message : "Transfer authorization failed. Check transaction history before retrying.", true);
+    if (button) { button.disabled = false; button.textContent = "Authorize and broadcast"; }
+  }
+}
+
 async function receiveView() {
   if (!syncVerified || !engineState) { screen = "vault"; return void vaultView(); }
   screen = "receive";
@@ -323,10 +452,15 @@ root.addEventListener("click", (event) => {
   else if (action === "unlock") { screen = "unlock"; unlockView(); }
   else if (action === "vault") { screen = "vault"; void vaultView(); }
   else if (action === "receive") { void receiveView(); }
+  else if (action === "send") { sendView(); }
+  else if (action === "cancel-transfer") { cancelPendingTestnetTransfer(); pendingTransferDetails = null; screen = "send"; sendView(); }
+  else if (action === "confirm-send") { void confirmSend(); }
+  else if (action === "copy-txid") { const txid = button.dataset.txid; if (txid) navigator.clipboard.writeText(txid).then(() => feedback("Transaction ID copied."), () => feedback("Could not copy transaction ID.", true)); }
+  else if (action === "send-result-back") { screen = "vault"; void vaultView(); }
   else if (action === "reveal") { phraseVisible = !phraseVisible; void vaultView(); }
   else if (action === "copy-address" || action === "copy-transparent") { const address = action === "copy-address" ? engineState?.unifiedAddress : engineState?.transparentAddress; if (address) navigator.clipboard.writeText(address).then(() => feedback("Address copied."), () => feedback("Could not copy address. Select and copy it manually.", true)); }
   else if (action === "sync") { void runSync(); }
-  else if (action === "lock") { if (engineBusy) { feedback("Wait for the active sync to finish before locking.", true); return; } lifecycleGeneration += 1; lockVault(); releaseTestnetWallet(); engineState = null; syncVerified = false; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
+  else if (action === "lock") { if (engineBusy) { feedback("Wait for the active sync to finish before locking.", true); return; } lifecycleGeneration += 1; lockVault(); cancelPendingTestnetTransfer(); pendingTransferDetails = null; releaseTestnetWallet(); engineState = null; syncVerified = false; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
 });
 
 homeView();
