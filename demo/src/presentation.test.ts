@@ -25,7 +25,7 @@ describe("formatBalance", () => {
 describe("payment input guards", () => {
   it("recognizes the address formats used by this testnet lab", () => {
     expect(isSupportedTestnetAddress("utest1rz33qqexample")).toBe(true);
-    expect(isSupportedTestnetAddress("tmERzYmExample123")).toBe(true);
+    expect(isSupportedTestnetAddress("tmERzYmExampLe123")).toBe(true);
     expect(isSupportedTestnetAddress("zs1mainnet-looking-address")).toBe(false);
     expect(isSupportedTestnetAddress("")).toBe(false);
   });
