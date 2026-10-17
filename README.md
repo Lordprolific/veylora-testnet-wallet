@@ -1,6 +1,6 @@
 # Veylora Testnet Wallet
 
-**A developer-first starting point for building and testing Zcash dApps on testnet.**
+![Official Veylora four-petal mark](assets/veylora-mark.svg)\n\n**A developer-first starting point for building and testing Zcash dApps on testnet.**
 
 Veylora Testnet Wallet is a public developer-tooling project for the Veylora ecosystem and the wider Zcash developer community. The goal is to make it easier for developers to connect dApps, inspect testnet account state, and test supported transaction flows without accidentally interacting with mainnet.
 
@@ -18,7 +18,7 @@ Veylora Testnet Wallet is a public developer-tooling project for the Veylora eco
 
 - Manifest V3 browser-extension scaffold.
 - Read-only dApp demo in `demo/`, integrating the documented Noir Wallet SDK ([live demo](https://veylora-zcash-dapp-lab.vercel.app)).
-- Dark, compact popup UI designed for a developer wallet.
+- Dark, compact popup UI using the official Veylora four-petal mark (`assets/veylora-mark.svg`).
 - Explicit “wallet engine not connected” state.
 - Popup shortcut to the deployed read-only Zcash dApp Lab.
 - Initial provider integration contract in docs/provider-contract.md.
@@ -39,7 +39,7 @@ This loads the prototype UI only. It does **not** create a wallet, manage keys, 
 - GitHub Actions runs presentation tests and a TypeScript/Vite production build.
 - The demo cannot independently verify which Noir extension build is installed. Confirm the official testnet build before connecting.
 - The browser extension popup remains a prototype interface; it is not the wallet engine.
-- The hosted demo is currently deployed from a reviewed source snapshot. Automatic deployment from GitHub will be enabled once the Vercel GitHub integration is authorized for this repository.
+- The hosted demo is connected to this GitHub repository through Vercel and deploys from `main`.
 
 ## Roadmap
 
