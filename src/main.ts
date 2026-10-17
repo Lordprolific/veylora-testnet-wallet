@@ -104,6 +104,7 @@ function passwordView(mode: "create" | "restore") {
       <p class="flow-copy">${mode === "create" ? "Create a strong password to encrypt your recovery phrase on this device. Use at least 12 characters." : "Enter your 24-word recovery phrase and choose a new local encryption password."}</p>
       ${mode === "restore" ? '<label class="field-label" for="recovery">24-word recovery phrase</label><textarea id="recovery" rows="4" autocomplete="off" spellcheck="false" placeholder="Enter your 24 words in order"></textarea>' : ""}
       <form id="password-form">
+        ${mode === "restore" && vaultExists() ? '<label class="check-row destructive-check"><input type="checkbox" id="replace-existing" required /> I understand this will replace the existing encrypted vault on this device.</label>' : ""}
         <label class="field-label" for="password">${mode === "restore" ? "New wallet password" : "Wallet password"}</label>
         <input id="password" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required placeholder="At least 12 characters" />
         <label class="field-label" for="password-confirm">Confirm password</label>
@@ -126,7 +127,7 @@ function passwordView(mode: "create" | "restore") {
     busy = true;
     try {
       if (mode === "create") await createEncryptedVault(phrase, password);
-      else await restoreEncryptedVault(phrase, password);
+      else await restoreEncryptedVault(phrase, password, !vaultExists() || Boolean(root!.querySelector<HTMLInputElement>("#replace-existing")?.checked));
       pendingPhrase = "";
       screen = "vault";
       vaultView();
