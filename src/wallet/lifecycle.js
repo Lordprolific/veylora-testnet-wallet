@@ -37,7 +37,8 @@ export async function createEncryptedVault(phrase, password) {
   return true;
 }
 
-export async function restoreEncryptedVault(phrase, password) {
+export async function restoreEncryptedVault(phrase, password, replaceExisting = false) {
+  if (vaultExists() && !replaceExisting) throw new Error("A vault already exists. Confirm replacement before overwriting it.");
   const normalized = validateRecoveryPhrase(phrase);
   const envelope = await encryptVaultSecret(normalized, password);
   localStorage.setItem(VAULT_KEY, JSON.stringify(envelope));
