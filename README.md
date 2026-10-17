@@ -20,6 +20,7 @@ Veylora Testnet Wallet is a public developer-tooling project for the Veylora eco
 - Read-only dApp demo in `demo/`, integrating the documented Noir Wallet SDK.
 - Dark, compact popup UI designed for a developer wallet.
 - Explicit “wallet engine not connected” state.
+- Popup shortcut to the deployed read-only Zcash dApp Lab.
 - Initial provider integration contract in docs/provider-contract.md.
 
 ## Run locally
