@@ -3,9 +3,76 @@ import { wordlist } from "@scure/bip39/wordlists/english.js";
 import { encryptVaultSecret, decryptVaultSecret } from "../security/vault.js";
 
 const VAULT_KEY = "veylora.encrypted-vault.v1";
-const DB_KEY = "veylora.encrypted-wallet-db.v1";
+const DB_NAME = "veylora-local-secure-store";
+const DB_STORE = "encrypted-records";
+const DB_KEY = "wallet-database-v1";
 let unlockedPhrase = null;
 let unlockedDatabase = null;
+
+function openSecureStore() {
+  if (!globalThis.indexedDB) throw new Error("Encrypted local database storage is unavailable.");
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(DB_STORE)) request.result.createObjectStore(DB_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(new Error("Could not open encrypted local wallet storage."));
+  });
+}
+
+async function readSecureRecord(key) {
+  const db = await openSecureStore();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readonly");
+    const request = tx.objectStore(DB_STORE).get(key);
+    request.onsuccess = () => resolve(request.result ?? null);
+    request.onerror = () => reject(new Error("Could not read encrypted wallet storage."));
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => { db.close(); reject(new Error("Encrypted wallet storage read failed.")); };
+  });
+}
+
+async function writeSecureRecord(key, value) {
+  const db = await openSecureStore();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readwrite");
+    tx.objectStore(DB_STORE).put(value, key);
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(new Error("Could not save encrypted wallet storage.")); };
+    tx.onabort = () => { db.close(); reject(new Error("Saving encrypted wallet storage was aborted.")); };
+  });
+}
+
+async function deleteSecureRecord(key) {
+  const db = await openSecureStore();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readwrite");
+    tx.objectStore(DB_STORE).delete(key);
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); reject(new Error("Could not remove encrypted wallet storage.")); };
+  });
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < binary.length; offset += chunkSize) {
+    const end = Math.min(offset + chunkSize, binary.length);
+    for (let i = offset; i < end; i++) bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 /** Generate 24 BIP-39 words using the browser's cryptographically secure RNG. */
 export function createRecoveryPhrase() {
@@ -31,7 +98,7 @@ export function vaultExists() {
 }
 
 export async function createEncryptedVault(phrase, password) {
-  if (vaultExists()) throw new Error("A local vault already exists. Unlock it or restore only after removing the existing vault.");
+  if (vaultExists()) throw new Error("A local vault already exists. Unlock it or restore only after safely replacing the existing vault.");
   const normalized = validateRecoveryPhrase(phrase);
   const envelope = await encryptVaultSecret(normalized, password);
   localStorage.setItem(VAULT_KEY, JSON.stringify(envelope));
@@ -43,11 +110,9 @@ export async function createEncryptedVault(phrase, password) {
 export async function persistEncryptedWalletDatabase(database, accountId, password) {
   if (!(database instanceof Uint8Array) || database.length === 0) throw new Error("The wallet database is empty; nothing was persisted.");
   if (!Number.isInteger(accountId) || accountId < 0) throw new Error("Invalid wallet account identifier.");
-  let binary = "";
-  for (const byte of database) binary += String.fromCharCode(byte);
-  const payload = JSON.stringify({ accountId, database: btoa(binary) });
+  const payload = JSON.stringify({ accountId, database: bytesToBase64(database) });
   const envelope = await encryptVaultSecret(payload, password);
-  localStorage.setItem(DB_KEY, JSON.stringify(envelope));
+  await writeSecureRecord(DB_KEY, envelope);
   unlockedDatabase = { accountId, database: new Uint8Array(database) };
 }
 
@@ -61,7 +126,7 @@ export async function restoreEncryptedVault(phrase, password, replaceExisting = 
   const normalized = validateRecoveryPhrase(phrase);
   const envelope = await encryptVaultSecret(normalized, password);
   localStorage.setItem(VAULT_KEY, JSON.stringify(envelope));
-  localStorage.removeItem(DB_KEY);
+  await deleteSecureRecord(DB_KEY);
   unlockedPhrase = normalized;
   unlockedDatabase = null;
   return true;
@@ -79,16 +144,15 @@ export async function unlockVault(password) {
   const phrase = validateRecoveryPhrase(await decryptVaultSecret(envelope, password));
   unlockedPhrase = phrase;
   unlockedDatabase = null;
-  const databaseEnvelope = localStorage.getItem(DB_KEY);
+  const databaseEnvelope = await readSecureRecord(DB_KEY);
   if (databaseEnvelope) {
     try {
-      const databasePayload = await decryptVaultSecret(JSON.parse(databaseEnvelope), password);
+      const databasePayload = await decryptVaultSecret(databaseEnvelope, password);
       const parsed = JSON.parse(databasePayload);
       if (!Number.isInteger(parsed.accountId) || parsed.accountId < 0 || typeof parsed.database !== "string") {
         throw new Error("Invalid encrypted wallet database payload.");
       }
-      const binary = atob(parsed.database);
-      const database = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      const database = base64ToBytes(parsed.database);
       if (database.length === 0) throw new Error("Empty wallet database.");
       unlockedDatabase = { accountId: parsed.accountId, database };
     } catch {
@@ -119,8 +183,8 @@ export function lockVault() {
   unlockedDatabase = null;
 }
 
-export function deleteLocalVault() {
+export async function deleteLocalVault() {
   lockVault();
   localStorage.removeItem(VAULT_KEY);
-  localStorage.removeItem(DB_KEY);
+  await deleteSecureRecord(DB_KEY);
 }
