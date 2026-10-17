@@ -22,8 +22,8 @@ permissions:
   actions: read
 
 concurrency:
-  group: veylora-extension-build-${{ github.ref }}
-  cancel-in-progress: true
+  group: veylora-extension-build-${{ github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   build:
