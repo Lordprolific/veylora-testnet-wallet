@@ -19,39 +19,24 @@ on:
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: veylora-extension-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout pinned WebZjs source
-        uses: actions/checkout@v4
+      - name: Download previously verified pinned WebZjs build
+        uses: actions/download-artifact@v4
         with:
-          repository: ChainSafe/WebZjs
-          ref: a50df944c32243cb8da9f86e7d52cb65ac926439
-          path: .engine/WebZjs
-      - name: Install system build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-18 libclang-18-dev build-essential pkg-config
-          echo "LIBCLANG_PATH=/usr/lib/llvm-18/lib" >> "$GITHUB_ENV"
-          echo "CC=clang-18" >> "$GITHUB_ENV"
-          echo "CXX=clang++-18" >> "$GITHUB_ENV"
-      - name: Install pinned Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2025-01-07
-          targets: wasm32-unknown-unknown
-          components: rust-src
-      - name: Build tools
-        run: |
-          rustup toolchain install stable --profile minimal
-          cargo +stable install wasm-pack --locked
-          cargo +stable install just --locked
-      - name: Build pinned WebZjs WASM packages
-        working-directory: .engine/WebZjs
-        run: just build
+          name: webzjs-wasm-packages-a50df944
+          path: .engine/packages
+          run-id: 39059475044
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -59,10 +44,13 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Install locally built WebZjs packages
         run: |
+          test -f .engine/packages/webzjs-wallet/webzjs_wallet.js
+          test -f .engine/packages/webzjs-wallet/webzjs_wallet_bg.wasm
+          test -f .engine/packages/webzjs-keys/webzjs_keys.js
           mkdir -p node_modules/@chainsafe
-          cp -R .engine/WebZjs/packages/webzjs-wallet node_modules/@chainsafe/webzjs-wallet
-          cp -R .engine/WebZjs/packages/webzjs-keys node_modules/@chainsafe/webzjs-keys
-          cp .engine/WebZjs/LICENSE-APACHE .engine/WebZjs/LICENSE-MIT public/
+          cp -R .engine/packages/webzjs-wallet node_modules/@chainsafe/webzjs-wallet
+          cp -R .engine/packages/webzjs-keys node_modules/@chainsafe/webzjs-keys
+          cp .engine/packages/webzjs-wallet/LICENSE-APACHE .engine/packages/webzjs-wallet/LICENSE-MIT public/ 2>/dev/null || true
       - name: Type-check and build extension
         run: npm run build
       - name: Verify extension package files and network restriction
