@@ -11,18 +11,30 @@ const shieldedAddress = document.querySelector<HTMLElement>("#shielded-address")
 const accountCount = document.querySelector<HTMLElement>("#account-count")!;
 const balance = document.querySelector<HTMLElement>("#balance")!;
 
-type ConnectionResult = { transparent?: string; shielded?: string; accounts?: unknown[] };
+type Account = { id?: string; label?: string; walletId?: string; accountId?: string };
+type ConnectionResult = {
+  transparent: string;
+  shielded: string;
+  accounts: Account[];
+};
+
+let connectedWallet: ReturnType<typeof getNoirWallet> = null;
+let activeConnection: ConnectionResult | null = null;
+let subscribedWallet: ReturnType<typeof getNoirWallet> = null;
 
 function setState(label: string, connected: boolean) {
   stateBadge.textContent = label;
   stateBadge.dataset.connected = String(connected);
 }
+
 function shortAddress(value: unknown): string {
   if (typeof value !== "string" || !value) return "Not shared";
   return value.length <= 24 ? value : value.slice(0, 12) + "…" + value.slice(-8);
 }
-function renderConnection(result: ConnectionResult | null) {
-  if (!result) {
+
+function renderConnection(connection: ConnectionResult | null) {
+  activeConnection = connection;
+  if (!connection) {
     setState("NOT CONNECTED", false);
     transparentAddress.textContent = "Not shared";
     shieldedAddress.textContent = "Not shared";
@@ -30,62 +42,108 @@ function renderConnection(result: ConnectionResult | null) {
     balance.textContent = "Not requested";
     return;
   }
+
   setState("CONNECTED", true);
-  transparentAddress.textContent = shortAddress(result.transparent);
-  shieldedAddress.textContent = shortAddress(result.shielded);
-  accountCount.textContent = String(Array.isArray(result.accounts) ? result.accounts.length : 1);
+  transparentAddress.textContent = shortAddress(connection.transparent);
+  shieldedAddress.textContent = shortAddress(connection.shielded);
+  accountCount.textContent = String(Array.isArray(connection.accounts) ? connection.accounts.length : 0);
 }
-async function findWallet() {
+
+async function refreshBalance() {
+  const wallet = connectedWallet;
+  const connection = activeConnection;
+  if (!wallet || !connection) {
+    balance.textContent = "Not requested";
+    return;
+  }
+
+  balance.textContent = "Loading…";
   try {
-    const wallet = getNoirWallet();
-    if (!wallet) {
-      providerMessage.textContent = "No Noir Wallet provider detected. Install the official testnet extension, then reload this page.";
-      setState("PROVIDER NOT FOUND", false);
-      connectButton.disabled = true;
-      return null;
-    }
-    providerMessage.textContent = "Provider detected. Confirm the installed extension is the official testnet build before use.";
-    connectButton.disabled = false;
-    return wallet;
+    const selectedAccountId = connection.accounts?.[0]?.id;
+    const result = selectedAccountId
+      ? await wallet.zcash.getBalance(selectedAccountId)
+      : await wallet.zcash.getBalance();
+    const available = result.available == null ? "Unavailable" : String(result.available);
+    const shielded = result.shielded == null ? "Unavailable" : String(result.shielded);
+    balance.textContent = "Available: " + available + " · Shielded: " + shielded;
   } catch {
-    providerMessage.textContent = "The wallet provider could not be checked in this browser context.";
-    setState("UNAVAILABLE", false);
-    connectButton.disabled = true;
-    return null;
+    balance.textContent = "Balance unavailable";
   }
 }
-async function checkExistingConnection() {
-  feedback.textContent = "Checking for an existing authorized session…";
+
+function subscribeToAccountChanges(wallet: NonNullable<ReturnType<typeof getNoirWallet>>) {
+  if (subscribedWallet === wallet) return;
+  subscribedWallet = wallet;
+  wallet.zcash.on("accountsChanged", () => {
+    // Re-read the provider after every event; do not trust cached event payloads.
+    void checkExistingConnection("Wallet accounts changed. Refreshing the authorized session…");
+  });
+}
+
+async function checkExistingConnection(message?: string) {
+  connectButton.disabled = true;
+  feedback.textContent = message ?? "Checking for an existing authorized session…";
   balance.textContent = "Not requested";
+
   try {
-    const wallet = await findWallet();
-    if (!wallet) { renderConnection(null); feedback.textContent = "No compatible provider is available."; return; }
+    const wallet = getNoirWallet();
+    connectedWallet = wallet;
+    if (!wallet) {
+      renderConnection(null);
+      setState("PROVIDER NOT FOUND", false);
+      providerMessage.textContent = "No Noir Wallet provider detected. Install the official testnet extension, then reload this page.";
+      feedback.textContent = "No compatible provider is available.";
+      return;
+    }
+
+    providerMessage.textContent = "Provider detected. Confirm that the installed extension is the official testnet build before use.";
+    subscribeToAccountChanges(wallet);
     const connection = await wallet.zcash.getAccounts();
     renderConnection(connection as ConnectionResult | null);
-    feedback.textContent = connection ? "Existing authorized connection restored." : "No existing authorization. Choose Connect wallet to approve access.";
+
+    if (connection) {
+      feedback.textContent = "Existing authorized connection restored.";
+      await refreshBalance();
+    } else {
+      feedback.textContent = "No existing authorization. Choose Connect wallet to approve access.";
+    }
   } catch {
     renderConnection(null);
     feedback.textContent = "Could not restore the connection. Check the wallet extension and try again.";
+  } finally {
+    connectButton.disabled = !connectedWallet;
   }
 }
+
 connectButton.addEventListener("click", async () => {
   connectButton.disabled = true;
+  refreshButton.disabled = true;
   feedback.textContent = "Waiting for wallet approval…";
   balance.textContent = "Not requested";
+
   try {
-    const wallet = await findWallet();
-    if (!wallet) { feedback.textContent = "Provider not found. Install the official testnet build."; return; }
+    const wallet = getNoirWallet();
+    connectedWallet = wallet;
+    if (!wallet) {
+      renderConnection(null);
+      setState("PROVIDER NOT FOUND", false);
+      providerMessage.textContent = "No Noir Wallet provider detected. Install the official testnet extension, then reload this page.";
+      feedback.textContent = "Provider not found. Install the official testnet build.";
+      return;
+    }
+
+    subscribeToAccountChanges(wallet);
     const connection = await wallet.zcash.connect();
     renderConnection(connection as ConnectionResult);
     feedback.textContent = "Connection approved. No transaction was created or signed.";
-    try {
-      const currentBalance = await wallet.zcash.getBalance();
-      const available = "available" in currentBalance ? String(currentBalance.available) : "Unavailable";
-      const shielded = "shielded" in currentBalance ? String(currentBalance.shielded) : "Unavailable";
-      balance.textContent = "Available: " + available + " · Shielded: " + shielded;
-    } catch { balance.textContent = "Balance unavailable"; }
-  } catch { feedback.textContent = "Connection was rejected or failed. No transaction was sent."; }
-  finally { connectButton.disabled = false; }
+    await refreshBalance();
+  } catch {
+    feedback.textContent = "Connection was rejected or failed. No transaction was sent.";
+  } finally {
+    connectButton.disabled = !connectedWallet;
+    refreshButton.disabled = false;
+  }
 });
+
 refreshButton.addEventListener("click", () => void checkExistingConnection());
 void checkExistingConnection();
