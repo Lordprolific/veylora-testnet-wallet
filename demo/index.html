@@ -1,11 +1,65 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="description" content="A developer demo for testing Zcash dApp connections with a compatible wallet on testnet."><title>Veylora · Zcash dApp Lab</title></head>
-<body><div id="app">
-<header class="topbar"><a class="brand" href="#" aria-label="Veylora home"><img class="mark" src="/assets/veylora-mark.svg" alt="" aria-hidden="true"><span>VEYLORA<span class="brand-sub">DEVELOPER LAB</span></span></a><span class="network-badge"><span class="dot"></span>TESTNET DEMO</span></header>
-<main><section class="intro"><p class="eyebrow">ZCASH · WALLET INTEGRATION</p><h1>Make privacy<br><span>buildable.</span></h1><p class="lede">A minimal connection lab for developers building Zcash dApps. Connect a compatible wallet, request account access, and inspect the information it explicitly shares.</p></section>
-<section class="notice" role="note"><span class="notice-icon">i</span><p><strong>Testnet safety</strong><br>Install the official Noir Wallet testnet extension before connecting. Mainnet and testnet use separate extension builds. This demo cannot independently verify which build is installed, so confirm the extension yourself before use.</p></section>
-<section class="panel"><div class="panel-head"><div><p class="eyebrow">SESSION</p><h2>Wallet connection</h2></div><span id="state-badge" class="state-badge">NOT CONNECTED</span></div>
-<p id="provider-message" class="muted">Checking for a compatible Noir Wallet provider…</p><button id="connect-button" class="primary" type="button">Connect wallet <span aria-hidden="true">↗</span></button><button id="refresh-button" class="secondary" type="button">Check existing connection</button><p id="feedback" class="feedback" role="status" aria-live="polite"></p>
-<div class="rule"></div><div class="data-row"><span>Transparent address</span><code id="transparent-address">Not shared</code></div><div class="data-row"><span>Shielded address</span><code id="shielded-address">Not shared</code></div><div class="data-row"><span>Authorized accounts</span><strong id="account-count">—</strong></div><div class="data-row"><span>Balance</span><strong id="balance">Not requested</strong></div></section>
-<section class="bottom-note"><p class="eyebrow">BUILT FOR BUILDERS</p><p>This demo is read-only. It does not request signatures, create transactions, collect addresses for analytics, or ask for recovery phrases.</p><a href="https://github.com/Lordprolific/veylora-testnet-wallet" target="_blank" rel="noreferrer">Explore the project on GitHub ↗</a></section></main>
-<footer><span>VEYLORA · EXPERIMENTAL TOOLING</span><span>Not audited · Not for funds</span></footer></div><script type="module" src="/src/main.ts"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="A testnet-first developer lab for connecting Noir Wallet, inspecting shared account state, and testing user-approved Zcash payments.">
+  <title>Veylora · Zcash dApp Lab</title>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Veylora home"><img class="mark" src="/assets/veylora-mark.svg" alt="" aria-hidden="true"><span>VEYLORA<span class="brand-sub">DEVELOPER LAB</span></span></a>
+    <span class="network-badge"><span class="dot"></span>TESTNET LAB</span>
+  </header>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">ZCASH · WALLET INTEGRATION</p>
+      <h1>Make privacy<br><span>buildable.</span></h1>
+      <p class="lede">A practical connection and payment lab for developers building Zcash dApps. Inspect what a wallet shares, test a payment on testnet, and keep approval in the wallet owner's hands.</p>
+    </section>
+    <section class="notice" role="note"><span class="notice-icon">i</span><p><strong>Testnet safety</strong><br>This demo cannot independently verify the wallet's active network. Confirm you have installed and selected the official Noir Wallet testnet build before connecting or sending. Never use a mainnet wallet or real funds here.</p></section>
+    <section class="panel" aria-labelledby="session-title">
+      <div class="panel-head"><div><p class="eyebrow">SESSION</p><h2 id="session-title">Wallet connection</h2></div><span id="state-badge" class="state-badge">CHECKING</span></div>
+      <p id="provider-message" class="muted">Checking for a compatible Noir Wallet provider…</p>
+      <div class="button-row"><button id="connect-button" class="primary" type="button">Connect wallet <span aria-hidden="true">↗</span></button><button id="refresh-button" class="secondary" type="button">Refresh session</button></div>
+      <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+      <div class="rule"></div>
+      <div class="data-row"><span>Transparent address</span><div class="data-value"><code id="transparent-address">Not shared</code><button class="copy-button" type="button" data-copy="transparent-address" aria-label="Copy transparent address" disabled>Copy</button></div></div>
+      <div class="data-row"><span>Shielded address</span><div class="data-value"><code id="shielded-address">Not shared</code><button class="copy-button" type="button" data-copy="shielded-address" aria-label="Copy shielded address" disabled>Copy</button></div></div>
+      <div class="data-row"><span>Authorized accounts</span><strong id="account-count">—</strong></div>
+      <div class="data-row"><span>Balance snapshot</span><strong id="balance">Not requested</strong></div>
+      <p class="fine-print">Balances may be cached or unavailable while the wallet is locked or syncing. This page does not send account data to an application backend.</p>
+    </section>
+    <section class="panel section-gap" aria-labelledby="payment-title">
+      <div class="panel-head"><div><p class="eyebrow">USER-APPROVED ACTION</p><h2 id="payment-title">Testnet payment</h2></div><span class="state-badge">WALLET CONFIRMATION</span></div>
+      <p class="muted">Prepare a testnet ZEC transfer. Nothing is sent until you submit this form and approve the transaction in Noir Wallet.</p>
+      <form id="payment-form">
+        <label for="recipient">Recipient address</label>
+        <input id="recipient" name="recipient" autocomplete="off" spellcheck="false" placeholder="Paste a Zcash testnet address" required>
+        <div class="field-grid">
+          <div><label for="amount">Amount (ZEC)</label><input id="amount" name="amount" inputmode="decimal" autocomplete="off" placeholder="0.001" required></div>
+          <div><label for="funding-source">Funding source</label><select id="funding-source" name="funding-source"><option value="shielded" selected>Shielded (recommended)</option><option value="transparent">Transparent (public linkage risk)</option></select></div>
+        </div>
+        <label for="memo">Private memo <span class="label-optional">optional · shielded recipient only</span></label>
+        <textarea id="memo" name="memo" rows="2" maxlength="512" placeholder="Optional note (max 512 UTF-8 bytes)"></textarea>
+        <label class="check-row"><input id="testnet-confirm" type="checkbox" required><span>I have independently confirmed Noir Wallet is on testnet and I am using testnet funds only.</span></label>
+        <div class="privacy-callout"><strong>Privacy note</strong><span>Shielded funding is selected by default. Transparent funding may publicly link selected UTXOs. A private memo is only supported for shielded recipients.</span></div>
+        <button id="send-button" class="primary" type="submit" disabled>Review in Noir Wallet <span aria-hidden="true">↗</span></button>
+        <p id="payment-feedback" class="feedback" role="status" aria-live="polite">Connect a wallet to prepare a testnet payment.</p>
+      </form>
+      <div id="tx-result" class="tx-result" hidden></div>
+    </section>
+    <section class="panel section-gap" aria-labelledby="history-title">
+      <div class="panel-head"><div><p class="eyebrow">LOCAL WALLET DATA</p><h2 id="history-title">Transaction history</h2></div><button id="history-refresh" class="secondary compact" type="button" disabled>Refresh history</button></div>
+      <p class="muted">History is requested directly from Noir Wallet when you choose to refresh it. Entries are not uploaded by this demo.</p>
+      <div id="history-content" class="history-content"><p class="empty-state">Connect your wallet, then refresh history.</p></div>
+    </section>
+    <section class="bottom-note"><p class="eyebrow">BUILT FOR BUILDERS</p><p>This is experimental developer tooling, not a standalone wallet. Noir Wallet handles transaction review and signing. Always verify recipient, amount, network, and funding source in the wallet approval screen.</p><a href="https://github.com/Lordprolific/veylora-testnet-wallet" target="_blank" rel="noreferrer">Explore the project on GitHub ↗</a><span class="inline-separator">·</span><a href="https://docs.zknoir.com/noir-sdk-integration/" target="_blank" rel="noreferrer">Noir SDK documentation ↗</a></section>
+  </main>
+  <footer><span>VEYLORA · EXPERIMENTAL TOOLING</span><span>Not audited · Testnet only</span></footer>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
