@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "Veylora Zcash Wallet",
   "short_name": "Veylora",
-  "version": "0.2.0",
-  "description": "A self-custody Zcash wallet with transparent and shielded payments.",
+  "version": "0.3.0",
+  "description": "Experimental self-custody Zcash testnet wallet with encrypted local recovery.",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Open Veylora Wallet"
