@@ -86,7 +86,7 @@ export async function restoreTestnetAccount(database: Uint8Array, accountId: num
       transparentAddress,
       chainHeight: String(latestHeight),
       scannedHeight: String(summary?.fully_scanned_height ?? 0),
-      birthdayHeight: Number(summary?.fully_scanned_height ?? 0),
+      birthdayHeight: 0,
       database: serialized,
     };
   } catch (error) { wallet.free(); throw error; }
