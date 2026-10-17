@@ -100,6 +100,17 @@ export async function unlockVault(password) {
   return phrase;
 }
 
+export async function verifyWalletPassword(password) {
+  const serialized = localStorage.getItem(VAULT_KEY);
+  if (!serialized) throw new Error("No local vault was found.");
+  let envelope;
+  try { envelope = JSON.parse(serialized); } catch { throw new Error("The local vault is damaged."); }
+  const phrase = validateRecoveryPhrase(await decryptVaultSecret(envelope, password));
+  const current = getUnlockedRecoveryPhrase();
+  if (current && phrase !== current) throw new Error("That password does not unlock the currently active wallet.");
+  return true;
+}
+
 export function getUnlockedRecoveryPhrase() {
   const phrase = sessionStorage.getItem(SESSION_KEY);
   return phrase ? validateRecoveryPhrase(phrase) : null;
