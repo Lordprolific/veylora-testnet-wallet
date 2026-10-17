@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Veylora Zcash Wallet",
+  "short_name": "Veylora",
+  "version": "0.2.0",
+  "description": "A self-custody Zcash wallet with transparent and shielded payments.",
+  "minimum_chrome_version": "116",
+  "action": { "default_title": "Open Veylora Wallet" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["storage"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  }
+}
