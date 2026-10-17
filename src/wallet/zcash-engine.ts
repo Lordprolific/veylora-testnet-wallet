@@ -117,7 +117,7 @@ export async function prepareTestnetTransfer(toAddress: string, amountZatoshis: 
   pendingProposal = null;
   const proposal = await walletInstance.propose_transfer(activeAccountId, toAddress, amountZatoshis);
   try {
-    const details = proposal.describe();
+    const details = (proposal as any).describe();
     if (!details || !Array.isArray(details.steps) || details.steps.length === 0) {
       throw new Error("The wallet engine did not provide reviewable transaction details. Sending is blocked.");
     }
