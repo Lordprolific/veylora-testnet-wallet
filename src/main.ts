@@ -299,7 +299,7 @@ root.addEventListener("click", (event) => {
   else if (action === "reveal") { phraseVisible = !phraseVisible; void vaultView(); }
   else if (action === "copy-address" || action === "copy-transparent") { const address = action === "copy-address" ? engineState?.unifiedAddress : engineState?.transparentAddress; if (address) navigator.clipboard.writeText(address).then(() => feedback("Address copied."), () => feedback("Could not copy address. Select and copy it manually.", true)); }
   else if (action === "sync") { void runSync(); }
-  else if (action === "lock") { lifecycleGeneration += 1; lockVault(); releaseTestnetWallet(); engineState = null; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
+  else if (action === "lock") { if (engineBusy) { feedback("Wait for the active sync to finish before locking.", true); return; } lifecycleGeneration += 1; lockVault(); releaseTestnetWallet(); engineState = null; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
 });
 
 homeView();
