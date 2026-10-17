@@ -1,6 +1,6 @@
 import { getNoirWallet } from "@noir-wallet/sdk";
 import "./style.css";
-import { formatBalance, shortenAddress } from "./presentation";
+import { formatBalance, isSupportedTestnetAddress, isValidZecAmount, memoByteLength, shortenAddress, supportsPrivateMemo } from "./presentation";
 
 const connectButton = document.querySelector<HTMLButtonElement>("#connect-button")!;
 const refreshButton = document.querySelector<HTMLButtonElement>("#refresh-button")!;
@@ -176,12 +176,6 @@ document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach(button => {
 
 testnetConfirm.addEventListener("change", updateActionAvailability);
 
-function validTestnetAddress(address: string): boolean {
-  // Noir's displayed testnet address formats include utest1... and tm... .
-  // This is a format guard, not independent network verification.
-  return /^(utest1[0-9a-z]+|tm[1-9A-HJ-NP-Za-km-z]+|t2[1-9A-HJ-NP-Za-km-z]+|t3[1-9A-HJ-NP-Za-km-z]+)$/i.test(address);
-}
-
 function showTransactionResult(txid: string) {
   txResult.hidden = false;
   txResult.replaceChildren();
@@ -216,7 +210,7 @@ paymentForm.addEventListener("submit", async event => {
   const to = recipientInput.value.trim();
   const amount = amountInput.value.trim();
   const memo = memoInput.value;
-  if (!validTestnetAddress(to)) {
+  if (!isSupportedTestnetAddress(to)) {
     paymentFeedback.textContent = "That address format is not recognized as a supported Zcash testnet address. Check the full address and network.";
     recipientInput.focus();
     return;
@@ -226,12 +220,12 @@ paymentForm.addEventListener("submit", async event => {
     amountInput.focus();
     return;
   }
-  if (memo && !to.toLowerCase().startsWith("utest1")) {
+  if (memo && !supportsPrivateMemo(to)) {
     paymentFeedback.textContent = "A private memo is only supported for a shielded recipient address.";
     memoInput.focus();
     return;
   }
-  if (new TextEncoder().encode(memo).length > 512) {
+  if (memoByteLength(memo) > 512) {
     paymentFeedback.textContent = "The memo must be no more than 512 UTF-8 bytes.";
     memoInput.focus();
     return;
