@@ -1,0 +1,67 @@
+name: WebZjs engine source build
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/webzjs-engine-build.yml"
+      - "docs/ENGINE-INTEGRATION-RESEARCH.md"
+
+permissions:
+  contents: read
+
+jobs:
+  build-webzjs:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout Veylora
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned WebZjs source
+        uses: actions/checkout@v4
+        with:
+          repository: ChainSafe/WebZjs
+          ref: a50df944c32243cb8da9f86e7d52cb65ac926439
+          path: .engine/WebZjs
+
+      - name: Install system build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 libclang-18-dev build-essential pkg-config
+          echo "LIBCLANG_PATH=/usr/lib/llvm-18/lib" >> "$GITHUB_ENV"
+          echo "CC=clang-18" >> "$GITHUB_ENV"
+          echo "CXX=clang++-18" >> "$GITHUB_ENV"
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-01-07
+          targets: wasm32-unknown-unknown
+          components: rust-src
+
+      - name: Install wasm-pack and just
+        run: |
+          cargo install wasm-pack --locked
+          cargo install just --locked
+
+      - name: Build WebZjs WASM packages
+        working-directory: .engine/WebZjs
+        run: just build
+
+      - name: Verify generated package outputs
+        run: |
+          test -f .engine/WebZjs/packages/webzjs-wallet/package.json
+          test -f .engine/WebZjs/packages/webzjs-keys/package.json
+          find .engine/WebZjs/packages/webzjs-wallet -maxdepth 2 -type f | head -80
+          find .engine/WebZjs/packages/webzjs-keys -maxdepth 2 -type f | head -80
+
+      - name: Upload generated engine packages for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: webzjs-wasm-packages-a50df944
+          path: |
+            .engine/WebZjs/packages/webzjs-wallet
+            .engine/WebZjs/packages/webzjs-keys
+          if-no-files-found: error
+          retention-days: 7
