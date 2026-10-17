@@ -141,7 +141,7 @@ export function cancelPendingTestnetTransfer(): void {
   pendingProposal = null;
 }
 
-export async function authorizeAndBroadcastTestnetTransfer(seedPhrase: string): Promise<{ txids: string[]; database: Uint8Array }> {
+export async function authorizeAndBroadcastTestnetTransfer(seedPhrase: string): Promise<{ txids: string[]; database: Uint8Array; broadcastCompleted: boolean; broadcastError: string | null }> {
   if (!walletInstance || activeAccountId === null || !pendingProposal) {
     throw new Error("There is no reviewed transfer ready to authorize.");
   }
@@ -155,8 +155,10 @@ export async function authorizeAndBroadcastTestnetTransfer(seedPhrase: string): 
   for (let offset = 0; offset < txidBytes.length; offset += 32) {
     txids.push(Array.from(txidBytes.slice(offset, offset + 32), (byte) => byte.toString(16).padStart(2, "0")).join(""));
   }
-  await walletInstance.send_authorized_transactions(txidBytes);
-  return { txids, database: await walletInstance.db_to_bytes() };
+  let broadcastError: string | null = null;
+  try { await walletInstance.send_authorized_transactions(txidBytes); }
+  catch (error) { broadcastError = error instanceof Error ? error.message : "Broadcast response was ambiguous."; }
+  return { txids, database: await walletInstance.db_to_bytes(), broadcastCompleted: broadcastError === null, broadcastError };
 }
 
 export async function getTestnetDatabase(): Promise<Uint8Array> {
