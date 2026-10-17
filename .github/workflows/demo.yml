@@ -1,0 +1,29 @@
+name: Demo build
+
+on:
+  push:
+    paths:
+      - "demo/**"
+      - ".github/workflows/demo.yml"
+  pull_request:
+    paths:
+      - "demo/**"
+      - ".github/workflows/demo.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Type-check and build
+        run: npm run build
