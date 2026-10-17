@@ -12,6 +12,7 @@ export interface TestnetWalletState {
   chainHeight: string;
   scannedHeight: string;
   birthdayHeight: number;
+  database: Uint8Array;
 }
 
 async function initializeWasmOnce(): Promise<void> {
@@ -46,6 +47,7 @@ export async function createTestnetAccount(seedPhrase: string, birthdayHeight?: 
     const accountId = await wallet.create_account("Veylora", seedPhrase, 0, birthday);
     const unifiedAddress = await wallet.get_current_address(accountId);
     const transparentAddress = await wallet.get_current_address_transparent(accountId);
+    const database = await wallet.db_to_bytes();
     walletInstance = wallet;
     activeAccountId = accountId;
     return {
@@ -55,11 +57,39 @@ export async function createTestnetAccount(seedPhrase: string, birthdayHeight?: 
       chainHeight: String(latestHeight),
       scannedHeight: String(birthday),
       birthdayHeight: birthday,
+      database,
     };
   } catch (error) {
     wallet.free();
     throw error;
   }
+}
+
+
+export async function restoreTestnetAccount(database: Uint8Array, accountId: number): Promise<TestnetWalletState> {
+  if (walletInstance) throw new Error("The WebZjs wallet is already initialized in this page.");
+  if (!globalThis.crossOriginIsolated) throw new Error("This Chrome extension page is not cross-origin isolated; WebZjs worker/WASM threading cannot be safely initialized here.");
+  if (!(database instanceof Uint8Array) || database.length === 0) throw new Error("Encrypted wallet database is invalid.");
+  await initializeWasmOnce();
+  const wallet = new WebWallet("test", TESTNET_LIGHTWALLETD_PROXY, 1, 1, database);
+  try {
+    const latestHeight = await wallet.get_latest_block();
+    const unifiedAddress = await wallet.get_current_address(accountId);
+    const transparentAddress = await wallet.get_current_address_transparent(accountId);
+    const serialized = await wallet.db_to_bytes();
+    const summary = await wallet.get_wallet_summary();
+    walletInstance = wallet;
+    activeAccountId = accountId;
+    return {
+      accountId,
+      unifiedAddress,
+      transparentAddress,
+      chainHeight: String(latestHeight),
+      scannedHeight: String(summary?.fully_scanned_height ?? 0),
+      birthdayHeight: Number(summary?.fully_scanned_height ?? 0),
+      database: serialized,
+    };
+  } catch (error) { wallet.free(); throw error; }
 }
 
 export async function syncTestnetWallet(): Promise<{ chainHeight: string; scannedHeight: string; database: Uint8Array }> {
