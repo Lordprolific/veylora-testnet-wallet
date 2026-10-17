@@ -15,6 +15,13 @@ on:
   pull_request:
     paths:
       - "demo/**"
+      - "manifest.json"
+      - "popup.html"
+      - "popup.js"
+      - "popup.css"
+      - "docs/**"
+      - "README.md"
+      - "LICENSE-STATUS.md"
       - ".github/workflows/demo.yml"
 
 permissions:
