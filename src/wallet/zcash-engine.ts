@@ -4,6 +4,7 @@ const TESTNET_LIGHTWALLETD_PROXY = "https://zcash-testnet.chainsafe.dev";
 let wasmInitialization: Promise<void> | null = null;
 let walletInstance: WebWallet | null = null;
 let activeAccountId: number | null = null;
+let pendingProposal: any = null;
 
 export interface TestnetWalletState {
   accountId: number;
@@ -109,6 +110,60 @@ export async function syncTestnetWallet(): Promise<{ chainHeight: string; scanne
   };
 }
 
+export async function prepareTestnetTransfer(toAddress: string, amountZatoshis: bigint): Promise<any> {
+  if (!walletInstance || activeAccountId === null) throw new Error("Unlock and sync the testnet wallet before sending.");
+  if (amountZatoshis <= 0n) throw new Error("Send amount must be greater than zero.");
+  pendingProposal?.free?.();
+  pendingProposal = null;
+  const proposal = await walletInstance.propose_transfer(activeAccountId, toAddress, amountZatoshis);
+  try {
+    const details = proposal.describe();
+    if (!details || !Array.isArray(details.steps) || details.steps.length === 0) {
+      throw new Error("The wallet engine did not provide reviewable transaction details. Sending is blocked.");
+    }
+    const payments = details.steps.flatMap((step: any) => step.payments ?? []);
+    const matchingPayment = payments.some((payment: any) =>
+      payment.recipient_address === toAddress && BigInt(payment.amount_zatoshis ?? -1) === amountZatoshis
+    );
+    if (!matchingPayment || details.total_fee_zatoshis === undefined) {
+      throw new Error("The wallet engine's proposal does not match the requested recipient and amount. Sending is blocked.");
+    }
+    pendingProposal = proposal;
+    return details;
+  } catch (error) {
+    proposal.free?.();
+    throw error;
+  }
+}
+
+export function cancelPendingTestnetTransfer(): void {
+  pendingProposal?.free?.();
+  pendingProposal = null;
+}
+
+export async function authorizeAndBroadcastTestnetTransfer(seedPhrase: string): Promise<{ txids: string[]; database: Uint8Array }> {
+  if (!walletInstance || activeAccountId === null || !pendingProposal) {
+    throw new Error("There is no reviewed transfer ready to authorize.");
+  }
+  const proposal = pendingProposal;
+  pendingProposal = null;
+  const txidBytes = await walletInstance.create_proposed_transactions(proposal, seedPhrase, 0);
+  if (txidBytes.length === 0 || txidBytes.length % 32 !== 0) {
+    throw new Error("The wallet engine returned an invalid transaction ID list.");
+  }
+  const txids: string[] = [];
+  for (let offset = 0; offset < txidBytes.length; offset += 32) {
+    txids.push(Array.from(txidBytes.slice(offset, offset + 32), (byte) => byte.toString(16).padStart(2, "0")).join(""));
+  }
+  await walletInstance.send_authorized_transactions(txidBytes);
+  return { txids, database: await walletInstance.db_to_bytes() };
+}
+
+export async function getTestnetDatabase(): Promise<Uint8Array> {
+  if (!walletInstance) throw new Error("The testnet wallet is not initialized.");
+  return walletInstance.db_to_bytes();
+}
+
 export async function getTestnetHistory() {
   if (!walletInstance || activeAccountId === null) throw new Error("Initialize the testnet account before reading history.");
   const response = await walletInstance.get_transaction_history(activeAccountId, 25, 0);
@@ -136,6 +191,8 @@ export async function getTestnetAddress(): Promise<{ unified: string; transparen
 }
 
 export function releaseTestnetWallet(): void {
+  pendingProposal?.free?.();
+  pendingProposal = null;
   walletInstance?.free();
   walletInstance = null;
   activeAccountId = null;
