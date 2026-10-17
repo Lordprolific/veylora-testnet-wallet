@@ -343,14 +343,18 @@ function sendResultView() {
 
 async function confirmSend() {
   if (!pendingTransferDetails || !getUnlockedRecoveryPhrase()) return feedback("Unlock the wallet and prepare a transfer first.", true);
+  if (engineBusy) return;
   const password = window.prompt("Enter your wallet password to authorize the transfer and encrypt updated wallet state.");
   if (!password) return;
+  engineBusy = true;
   const button = root!.querySelector<HTMLButtonElement>("#confirm-send");
   if (button) { button.disabled = true; button.textContent = "Proving and authorizing…"; }
+  let authorizationStarted = false;
   try {
     await verifyWalletPassword(password);
     const phrase = getUnlockedRecoveryPhrase();
     if (!phrase) throw new Error("The wallet was locked before authorization.");
+    authorizationStarted = true;
     const result = await authorizeAndBroadcastTestnetTransfer(phrase);
     await persistEncryptedWalletDatabase(result.database, engineState?.accountId ?? -1, password);
     lastTransferResult = result;
@@ -362,9 +366,18 @@ async function confirmSend() {
       const database = await getTestnetDatabase();
       await persistEncryptedWalletDatabase(database, engineState?.accountId ?? -1, password);
     } catch { /* Preserve the original transfer error; the last encrypted snapshot remains intact. */ }
-    feedback(error instanceof Error ? error.message : "Transfer authorization failed. Check transaction history before retrying.", true);
-    if (button) { button.disabled = false; button.textContent = "Authorize and broadcast"; }
-  }
+    const message = error instanceof Error ? error.message : "Transfer authorization failed.";
+    if (authorizationStarted) {
+      lastTransferResult = { txids: [], broadcastCompleted: false, broadcastError: message };
+      pendingTransferDetails = null;
+      syncVerified = false;
+      cancelPendingTestnetTransfer();
+      sendResultView();
+    } else {
+      feedback(message, true);
+      if (button) { button.disabled = false; button.textContent = "Authorize and broadcast"; }
+    }
+  } finally { engineBusy = false; }
 }
 
 async function receiveView() {
@@ -399,6 +412,8 @@ async function runSync() {
   engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Syncing testnet…";
   const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
   if (receiveNav) { receiveNav.disabled = true; receiveNav.classList.add("disabled-nav"); }
+  const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
+  if (sendNav) { sendNav.disabled = true; sendNav.classList.add("disabled-nav"); }
   try {
     const password = window.prompt("Enter your wallet password to encrypt and save the updated testnet wallet database on this device.");
     if (!password) { status.textContent = "Sync cancelled"; return; }
@@ -414,6 +429,8 @@ async function runSync() {
       syncVerified = fullyScanned;
       const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
       if (receiveNav) { receiveNav.disabled = !fullyScanned; receiveNav.classList.toggle("disabled-nav", !fullyScanned); receiveNav.title = fullyScanned ? "Show verified testnet receive address" : "Sync the testnet wallet before receiving funds"; }
+      const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
+      if (sendNav) { sendNav.disabled = !fullyScanned; sendNav.classList.toggle("disabled-nav", !fullyScanned); sendNav.title = fullyScanned ? "Review a testnet transaction" : "Sync the testnet wallet before sending"; }
       balanceContent.innerHTML = `<div class="balance-panel"><div class="balance-title">Observed testnet balance <span>${fullyScanned ? "SCAN AT TIP" : "PARTIAL SCAN"}</span></div><div class="balance-total">${zec(result.shieldedBalance + result.transparentBalance + result.pendingBalance)} <small>ZEC</small></div><div class="balance-breakdown"><div><span>Shielded</span><strong>${zec(result.shieldedBalance)}</strong></div><div><span>Transparent</span><strong>${zec(result.transparentBalance)}</strong></div><div><span>Pending</span><strong>${zec(result.pendingBalance)}</strong></div></div><p class="small-note">${fullyScanned ? "The wallet reports its scan at the current chain tip. Verify with transaction history before relying on this balance." : "This is a partial scan and may not include all incoming activity. Keep syncing until the scanned height catches up."}</p></div>`;
     }
     const historyContent = root!.querySelector<HTMLElement>("#history-content");
