@@ -215,7 +215,7 @@ paymentForm.addEventListener("submit", async event => {
     recipientInput.focus();
     return;
   }
-  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,8})?$/.test(amount) || Number(amount) <= 0) {
+  if (!isValidZecAmount(amount)) {
     paymentFeedback.textContent = "Enter a positive ZEC amount with up to 8 decimal places.";
     amountInput.focus();
     return;
