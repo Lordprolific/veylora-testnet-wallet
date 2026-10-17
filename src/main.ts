@@ -4,6 +4,7 @@ import { createTestnetAccount, restoreTestnetAccount, syncTestnetWallet, release
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
 let engineBusy = false;
+let lifecycleGeneration = 0;
 import {
   createRecoveryPhrase,
   validateRecoveryPhrase,
@@ -192,6 +193,7 @@ async function vaultView(password?: string) {
 }
 
 async function initializeEngineForPhrase(phrase: string, password?: string) {
+  const generation = lifecycleGeneration;
   const status = root!.querySelector<HTMLElement>("#engine-status");
   const panel = root!.querySelector<HTMLElement>("#engine-panel");
   const addressContent = root!.querySelector<HTMLElement>("#address-content");
@@ -213,8 +215,10 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
       engineState = await restoreTestnetAccount(savedDatabase.database, savedDatabase.accountId);
     } else {
       engineState = await createTestnetAccount(phrase, typeof meta.birthdayHeight === "number" ? meta.birthdayHeight : undefined);
+      if (generation !== lifecycleGeneration) { releaseTestnetWallet(); engineState = null; return; }
       if (password) await persistEncryptedWalletDatabase(engineState.database, engineState.accountId, password);
     }
+    if (generation !== lifecycleGeneration) { releaseTestnetWallet(); engineState = null; return; }
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
     status.textContent = "Address derived · sync not verified";
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
@@ -224,6 +228,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
     syncButton.disabled = false;
   } catch (error) {
+    if (generation !== lifecycleGeneration) return;
     status.textContent = "Engine unavailable";
     addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Keep your recovery phrase safe. Do not send funds until initialization and synchronization work in Chrome.</p>`;
     feedback("The recovery phrase is encrypted, but the Zcash engine did not initialize. Do not deposit funds.", true);
@@ -294,7 +299,7 @@ root.addEventListener("click", (event) => {
   else if (action === "reveal") { phraseVisible = !phraseVisible; void vaultView(); }
   else if (action === "copy-address" || action === "copy-transparent") { const address = action === "copy-address" ? engineState?.unifiedAddress : engineState?.transparentAddress; if (address) navigator.clipboard.writeText(address).then(() => feedback("Address copied."), () => feedback("Could not copy address. Select and copy it manually.", true)); }
   else if (action === "sync") { void runSync(); }
-  else if (action === "lock") { lockVault(); releaseTestnetWallet(); engineState = null; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
+  else if (action === "lock") { lifecycleGeneration += 1; lockVault(); releaseTestnetWallet(); engineState = null; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
 });
 
 homeView();
