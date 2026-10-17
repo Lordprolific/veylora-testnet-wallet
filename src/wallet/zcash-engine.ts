@@ -11,6 +11,7 @@ export interface TestnetWalletState {
   transparentAddress: string;
   chainHeight: string;
   scannedHeight: string;
+  birthdayHeight: number;
 }
 
 async function initializeWasmOnce(): Promise<void> {
@@ -32,7 +33,7 @@ async function initializeWasmOnce(): Promise<void> {
  * This does not persist the wallet database or start a chain sync; callers
  * must persist the encrypted DB and handle sync status before showing balances.
  */
-export async function createTestnetAccount(seedPhrase: string): Promise<TestnetWalletState> {
+export async function createTestnetAccount(seedPhrase: string, birthdayHeight?: number): Promise<TestnetWalletState> {
   if (walletInstance) throw new Error("The WebZjs wallet is already initialized in this page.");
   if (!globalThis.crossOriginIsolated) {
     throw new Error("This Chrome extension page is not cross-origin isolated; WebZjs worker/WASM threading cannot be safely initialized here.");
@@ -41,7 +42,8 @@ export async function createTestnetAccount(seedPhrase: string): Promise<TestnetW
   const wallet = new WebWallet("test", TESTNET_LIGHTWALLETD_PROXY, 1, 1, null);
   try {
     const latestHeight = await wallet.get_latest_block();
-    const accountId = await wallet.create_account("Veylora", seedPhrase, 0, Number(latestHeight));
+    const birthday = birthdayHeight === undefined ? Number(latestHeight) : birthdayHeight;
+    const accountId = await wallet.create_account("Veylora", seedPhrase, 0, birthday);
     const unifiedAddress = await wallet.get_current_address(accountId);
     const transparentAddress = await wallet.get_current_address_transparent(accountId);
     walletInstance = wallet;
@@ -51,7 +53,8 @@ export async function createTestnetAccount(seedPhrase: string): Promise<TestnetW
       unifiedAddress,
       transparentAddress,
       chainHeight: String(latestHeight),
-      scannedHeight: "0",
+      scannedHeight: String(birthday),
+      birthdayHeight: birthday,
     };
   } catch (error) {
     wallet.free();
