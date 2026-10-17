@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>Veylora Testnet Wallet</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup" aria-label="Veylora Testnet Wallet">
+          <div class="brand-mark" aria-hidden="true">V</div>
+          <div><p class="eyebrow">DEVELOPER TOOLING</p><h1>Veylora</h1></div>
+        </div>
+        <span class="network-pill"><span class="status-dot"></span>TESTNET</span>
+      </header>
+      <section class="hero">
+        <p class="eyebrow">ZCASH DEVELOPMENT</p>
+        <h2>Build with<br><span>confidence.</span></h2>
+        <p class="intro">A testnet-first companion for connecting and testing Zcash dApps.</p>
+      </section>
+      <section class="connection-card" aria-labelledby="connection-title">
+        <div class="connection-heading">
+          <span class="connection-icon" aria-hidden="true">↗</span>
+          <div><h3 id="connection-title">Wallet engine</h3><p id="connection-status" role="status">Not connected</p></div>
+          <span class="state-indicator" aria-hidden="true"></span>
+        </div>
+        <p class="card-note">The interface is ready for integration. A compatible Zcash wallet provider has not been configured yet.</p>
+        <div class="divider"></div>
+        <div class="detail-row"><span>Network</span><strong>Zcash Testnet · planned</strong></div>
+        <div class="detail-row"><span>Signing</span><strong>Not available</strong></div>
+        <div class="detail-row"><span>Key storage</span><strong>Not implemented</strong></div>
+      </section>
+      <section class="next-step">
+        <p class="eyebrow">NEXT STEP</p>
+        <h3>Connect the right engine.</h3>
+        <p>We’re verifying a maintained wallet provider and its documented API before enabling account access or signing.</p>
+        <button id="guide-button" class="primary-button" type="button">Read integration plan <span aria-hidden="true">↗</span></button>
+        <button id="copy-button" class="secondary-button" type="button">Copy provider contract</button>
+        <p id="action-status" class="action-status" aria-live="polite"></p>
+      </section>
+      <footer><span>VEYLORA · EARLY PROTOTYPE</span><span>Not for funds</span></footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
