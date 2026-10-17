@@ -194,6 +194,12 @@ async function initializeEngineForPhrase(phrase: string) {
   const addressContent = root!.querySelector<HTMLElement>("#address-content");
   const syncButton = root!.querySelector<HTMLButtonElement>("#sync-button");
   if (!status || !panel || !addressContent || !syncButton) return;
+  if (engineState) {
+    status.textContent = "Address derived · sync not verified";
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
+    syncButton.disabled = false;
+    return;
+  }
   status.textContent = "Initializing local WASM…";
   syncButton.disabled = true;
   try {
