@@ -8,6 +8,7 @@ const ITERATIONS = 600_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const VAULT_CONTEXT = new TextEncoder().encode("veylora-local-vault:v1");
+const MAX_SECRET_CHARS = 128_000_000;
 
 function webCrypto() {
   if (!globalThis.crypto?.subtle || !globalThis.crypto?.getRandomValues) {
@@ -18,7 +19,10 @@ function webCrypto() {
 
 function toBase64(bytes) {
   let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
   return btoa(binary);
 }
 
@@ -60,7 +64,7 @@ export async function encryptVaultSecret(secret, password) {
   if (typeof secret !== "string" || secret.length === 0) {
     throw new Error("A non-empty secret is required.");
   }
-  if (secret.length > 100_000) throw new Error("Secret is too large.");
+  if (secret.length > MAX_SECRET_CHARS) throw new Error("Secret is too large for the local vault.");
   validatePassword(password);
 
   const crypto = webCrypto();
