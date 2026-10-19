@@ -234,7 +234,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     const accountLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (accountLabels[1]) accountLabels[1].textContent = "DERIVED LOCALLY";
     if (accountLabels[2]) accountLabels[2].textContent = "SYNC NEEDED";
-    const indicator = panel.querySelector(".engine-panel-head .status-indicator");
+    const indicator = root!.querySelector(".sync-status-line .status-indicator");
     indicator?.classList.add("status-ready");
     addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
@@ -536,6 +536,7 @@ async function runSync() {
     feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
   } finally {
     if (syncTimer !== undefined) window.clearInterval(syncTimer);
+    if (progress) progress.hidden = true;
     engineBusy = false;
     button.disabled = false;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
