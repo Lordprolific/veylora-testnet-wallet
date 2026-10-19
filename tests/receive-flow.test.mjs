@@ -7,7 +7,7 @@ const styles = readFileSync(new URL("../src/style.css", import.meta.url), "utf8"
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 test("receive view requires a derived address, not a completed chain sync", () => {
-  const receiveView = source.match(/async function receiveView\(\) \{([\s\S]*?)\n\}\n\nasync function runSync/);
+  const receiveView = source.match(/async function receiveView\(\) \{([\s\S]*?)\n\}\n\nasync function activityView/);
   assert.ok(receiveView, "receiveView function should exist");
   assert.match(receiveView[1], /if \(!engineState \|\| !getUnlockedRecoveryPhrase\(\)\)/);
   assert.doesNotMatch(receiveView[1], /syncVerified/);
@@ -41,4 +41,18 @@ test("WebZjs engine is supplied by the pinned build workflow, not the npm regist
   assert.equal(packageJson.dependencies["@chainsafe/webzjs-wallet"], undefined);
   assert.match(workflow, /webzjs-wasm-packages-veylora-review-a50df944/);
   assert.match(workflow, /cp -R \.engine\/packages\/webzjs-wallet node_modules\/@chainsafe\/webzjs-wallet/);
+});
+
+
+test("wallet dashboard exposes scan progress and an activity view", () => {
+  assert.match(source, /wallet-dashboard/);
+  assert.match(source, /sync-progress-copy/);
+  assert.match(source, /async function activityView/);
+  assert.match(source, /Still scanning wallet history/);
+});
+
+test("recovery offers an explicit current-tip option without silently skipping history", () => {
+  assert.match(source, /new-testnet-wallet/);
+  assert.match(source, /mode === "restore" && !fastStart \? 0 : null/);
+  assert.match(source, /Full-history recovery can take significantly longer/);
 });
