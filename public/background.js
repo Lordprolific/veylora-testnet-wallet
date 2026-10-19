@@ -14,6 +14,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!["zcash_requestAccounts","zcash_getAccounts","zcash_signMessage","zcash_getAddresses","zcash_getPublicKey","zcash_disconnect"].includes(method)) {
       sendResponse({ error: "This Veylora wallet method is not supported.", code: 4200 }); return;
     }
+    // An origin that has already been approved should not be sent back to the wallet just to reconnect.
+    if (method === "zcash_requestAccounts" && approvedOrigins.has(origin)) {
+      sendResponse({ result: approvedOrigins.get(origin) });
+      return;
+    }
     if (method === "zcash_getAccounts" || method === "zcash_getAddresses" || method === "zcash_getPublicKey") {
       const account = approvedOrigins.get(origin);
       if (!account) { sendResponse({ result: null }); return; }
