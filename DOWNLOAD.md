@@ -1,14 +1,13 @@
 # Veylora Testnet Wallet
 
-**Version:** 0.3.1  
 **Network:** Zcash testnet  
 **Package:** Chrome extension (ZIP)
 
 ## Download
 
-**[Download the confirmed Veylora Wallet build](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39240814803/artifacts/12181855185)**
+**[Download Veylora Wallet for Chrome](https://github.com/Lordprolific/veylora-testnet-wallet/releases/latest/download/veylora-chrome-extension-testnet.zip)**
 
-This is the build identified and confirmed by the project owner as the correct working artifact. Download `veylora-chrome-extension-testnet`, then extract the ZIP before loading the extension in Chrome.
+This permanent download URL serves the ZIP attached to the latest GitHub Release. If the release has not yet been published, run the [Publish confirmed wallet artifact workflow](https://github.com/Lordprolific/veylora-testnet-wallet/actions/workflows/publish-confirmed-wallet.yml) first.
 
 ## Install
 
@@ -22,9 +21,9 @@ This is the build identified and confirmed by the project owner as the correct w
 
 - This wallet is for **Zcash testnet** experimentation, not mainnet funds.
 - Never share your recovery phrase or private keys.
-- **This is still a GitHub Actions artifact and expires automatically.** It is not yet a permanent release asset. A permanent download URL must not be advertised until the exact ZIP is uploaded to a GitHub Release and verified.
-- Wallet connection and signature verification should be confirmed in the live Market before relying on the integration.
+- The permanent release is created from the latest confirmed build artifact selected for this release workflow.
+- Verify wallet connection and signature flows in Veylora Market before relying on the integration.
 
-**Build provenance:** [GitHub Actions run #39240814803](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39240814803)  
-**Artifact ID:** `12181855185`  
-**Build commit:** `6b429b197bd5d86b90ccfe76882c7a9a60a53f03`
+**Source build:** [GitHub Actions run #39243136147](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39243136147)  
+**Source artifact ID:** `12182138227`  
+**Build commit:** `aec9a14c27db6cc35115ad6b67036a253b96cd8e`
