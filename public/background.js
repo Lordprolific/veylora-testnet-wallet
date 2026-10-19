@@ -1,3 +1,6 @@
 chrome.action.onClicked.addListener(() => {
-  chrome.tabs.create({ url: chrome.runtime.getURL("wallet.html") });
+  chrome.tabs.create({
+    url: chrome.runtime.getURL("wallet.html"),
+    active: true,
+  });
 });

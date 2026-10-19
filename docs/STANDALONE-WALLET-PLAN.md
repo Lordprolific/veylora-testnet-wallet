@@ -69,6 +69,8 @@ Reference material:
 
 ## Current status
 
-The standalone extension shell now passes its GitHub Actions build and package-file checks. The earlier npm E404 was caused by depending on WebZjs packages that are not published under the expected public npm names. Those unused dependencies were removed so the shell's build is no longer blocked by that error.
+The extension now has interactive create/restore/unlock/lock screens, secure BIP-39 recovery phrase generation, local encrypted vault storage, and an initial WebZjs adapter that targets the ChainSafe testnet gRPC-web proxy. The CI workflow builds the pinned upstream WASM packages from source, bundles the extension, and prepares a ZIP artifact for inspection.
 
-**This is still not a functional wallet.** Wallet creation, recovery, encrypted persistence, address derivation, synchronization, transaction proving, and sending have not been implemented or verified. The extension must not be used to store funds or be submitted to the Chrome Web Store yet.
+The engine integration is **not yet proven in a real installed Chrome extension**. WebZjs is upstream, under development, unaudited, and has known browser worker/CSP and transaction issues. The adapter must still be tested for WASM initialization, address derivation, actual sync completion, encrypted wallet database persistence across restart, balance/history correctness, and send/receive end to end. Send and Receive remain disabled in the UI.
+
+**Do not deposit testnet funds yet and do not submit this build to the Chrome Web Store.** A successful compile or derived address alone is not proof that sync, persistence, or transactions work. Mainnet remains out of scope.
