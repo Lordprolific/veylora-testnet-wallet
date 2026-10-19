@@ -189,7 +189,7 @@ async function vaultView(password?: string) {
       <div class="dashboard-heading"><div><div class="eyebrow">YOUR WALLET</div><h2>Overview</h2><p>Self-custody, without the clutter.</p></div><div class="account-chip"><span class="account-avatar">V</span><span><strong>Veylora wallet</strong><small>Local vault · Testnet</small></span><span class="live-dot"></span></div></div>
       <section class="balance-hero">
         <div class="balance-hero-top"><span>Total testnet balance</span><span class="network-pill"><i></i> ZCASH TESTNET</span></div>
-        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Sync your wallet to discover your balance.</p></div>
+        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Sync your wallet to discover your balance.</p></div><div id="balance-content" hidden></div>
         <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" \${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>\${syncVerified ? "Transfer testnet ZEC" : "Available after full scan"}</small></span></button></div>
         <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><button data-action="sync" id="sync-button" class="text-action">Sync wallet <span>↻</span></button></div>
       </section>
@@ -224,9 +224,13 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
   const panel = root!.querySelector<HTMLElement>("#engine-panel");
   const addressContent = root!.querySelector<HTMLElement>("#address-content");
   const syncButton = root!.querySelector<HTMLButtonElement>("#sync-button");
-  if (!status || !panel || !addressContent || !syncButton) return;
+  if (!status || !addressContent || !syncButton) return;
   if (engineState) {
     status.textContent = "Address ready · sync needed";
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = "ADDRESS READY";
+    const addressState = root!.querySelector<HTMLElement>("#address-state");
+    if (addressState) addressState.textContent = "Ready";
     const accountLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (accountLabels[1]) accountLabels[1].textContent = "DERIVED LOCALLY";
     if (accountLabels[2]) accountLabels[2].textContent = "SYNC NEEDED";
@@ -257,7 +261,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
     if (statusLabels[2]) statusLabels[2].textContent = "SYNC NEEDED";
-    panel.querySelector(".engine-panel-head .status-indicator")?.classList.add("status-ready");
+    root!.querySelector(".sync-status-line .status-indicator")?.classList.add("status-ready");
     addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
@@ -265,6 +269,10 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
   } catch (error) {
     if (generation !== lifecycleGeneration) return;
     status.textContent = "Engine unavailable";
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = "UNAVAILABLE";
+    const engineError = root!.querySelector<HTMLElement>("#engine-error");
+    if (engineError) { engineError.hidden = false; engineError.textContent = error instanceof Error ? error.message : "WebZjs could not initialize in this extension context."; }
     addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Your encrypted vault remains saved. Receiving becomes available when address derivation succeeds; syncing is required to display a current balance.</p>`;
     feedback("The vault is encrypted, but the testnet engine could not initialize. Review the engine error and retry.", true);
   }
