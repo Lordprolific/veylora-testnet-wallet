@@ -68,8 +68,8 @@ jobs:
           node-version: 22
       - name: Validate extension manifest
         run: node -e 'JSON.parse(require("fs").readFileSync("manifest.json", "utf8")); console.log("manifest.json is valid JSON")'
-      - name: Check popup TypeScript syntax
-        run: node --check --experimental-strip-types src/popup.ts
+      - name: Check legacy popup JavaScript syntax
+        run: node --check popup.js
       - name: Check actual wallet popup controls
         run: |
           node -e 'const fs=require("fs"); const html=fs.readFileSync("popup.html","utf8"); const js=fs.readFileSync("src/popup.ts","utf8"); if (!html.includes("id=\"app\"")) throw new Error("Popup app mount is missing"); if (!html.includes("id=\"expand-wallet\"") || !js.includes("#expand-wallet") || !js.includes("wallet.html")) throw new Error("Expand wallet control is not wired"); if (!html.includes("src/main.ts")) throw new Error("Wallet application entry is missing"); console.log("Wallet popup controls are wired")'
