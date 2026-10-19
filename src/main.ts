@@ -184,13 +184,13 @@ async function vaultView(password?: string) {
   const phrase = getUnlockedRecoveryPhrase();
   if (!phrase) { screen = "home"; return homeView(); }
   screen = "vault";
-  shell(\`
+  shell(`
     <section class="wallet-dashboard">
       <div class="dashboard-heading"><div><div class="eyebrow">YOUR WALLET</div><h2>Overview</h2><p>Self-custody, without the clutter.</p></div><div class="account-chip"><span class="account-avatar">V</span><span><strong>Veylora wallet</strong><small>Local vault · Testnet</small></span><span class="live-dot"></span></div></div>
       <section class="balance-hero">
         <div class="balance-hero-top"><span>Total testnet balance</span><span class="network-pill"><i></i> ZCASH TESTNET</span></div>
         <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Sync your wallet to discover your balance.</p></div><div id="balance-content" hidden></div>
-        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" \${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>\${syncVerified ? "Transfer testnet ZEC" : "Available after full scan"}</small></span></button></div>
+        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" ${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>${syncVerified ? "Transfer testnet ZEC" : "Available after full scan"}</small></span></button></div>
         <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><button data-action="sync" id="sync-button" class="text-action">Sync wallet <span>↻</span></button></div>
       </section>
       <div class="dashboard-grid">
@@ -206,16 +206,16 @@ async function vaultView(password?: string) {
         <section class="dashboard-card quick-card">
           <div class="section-heading"><div><span class="section-kicker">QUICK ACCESS</span><h3>Manage wallet</h3></div></div>
           <button class="manage-row" data-action="receive"><span class="manage-icon">↓</span><span><strong>Receive ZEC</strong><small>QR code and address details</small></span><span class="manage-chevron">↗</span></button>
-          <button class="manage-row" data-action="activity" \${engineState ? "" : "disabled"}><span class="manage-icon">≋</span><span><strong>Recent activity</strong><small>Incoming and outgoing transactions</small></span><span class="manage-chevron">↗</span></button>
+          <button class="manage-row" data-action="activity" ${engineState ? "" : "disabled"}><span class="manage-icon">≋</span><span><strong>Recent activity</strong><small>Incoming and outgoing transactions</small></span><span class="manage-chevron">↗</span></button>
           <button class="manage-row" data-action="reveal"><span class="manage-icon">⌑</span><span><strong>Recovery phrase</strong><small>View your private backup</small></span><span class="manage-chevron">↗</span></button>
           <button class="manage-row" data-action="lock"><span class="manage-icon">⏻</span><span><strong>Lock wallet</strong><small>Close this unlocked session</small></span><span class="manage-chevron">↗</span></button>
         </section>
       </div>
       <section class="dashboard-card address-summary"><div class="section-heading"><div><span class="section-kicker">RECEIVE</span><h3>Your testnet address</h3></div><button class="text-action" data-action="receive">View details ↗</button></div><div id="address-content"><div class="address-placeholder">Deriving your address locally…</div></div></section>
       <section class="dashboard-card activity-summary"><div class="section-heading"><div><span class="section-kicker">ACTIVITY</span><h3>Recent transactions</h3></div><button class="text-action" data-action="activity">View all ↗</button></div><div id="history-content"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Activity will appear here</strong><p>Sync your wallet to discover incoming and outgoing transactions.</p></div></div></section>
-      \${phraseVisible ? \`<section class="dashboard-card phrase-reveal"><div class="section-heading"><div><span class="section-kicker">PRIVATE BACKUP</span><h3>Recovery phrase</h3></div><button class="text-action" data-action="reveal">Hide phrase</button></div><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>\${phrase.split(" ").map((word, i) => \`<span><small>\${i + 1}</small>\${escapeHtml(word)}</span>\`).join("")}</div></section>\` : ""}
+      ${phraseVisible ? `<section class="dashboard-card phrase-reveal"><div class="section-heading"><div><span class="section-kicker">PRIVATE BACKUP</span><h3>Recovery phrase</h3></div><button class="text-action" data-action="reveal">Hide phrase</button></div><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></section>` : ""}
       <div class="dashboard-footer-actions"><span><span class="secure-dot"></span> Keys stay on this device</span><button class="text-action" data-action="lock">Lock wallet</button></div>
-    </section>\`);
+    </section>`);
   void initializeEngineForPhrase(phrase, password);
 }
 async function initializeEngineForPhrase(phrase: string, password?: string) {
