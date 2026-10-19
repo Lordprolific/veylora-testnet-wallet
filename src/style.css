@@ -47,3 +47,52 @@ body.popup-mode .phrase-word{padding:8px}
 body.popup-mode .status-row{align-items:flex-start}
 body.popup-mode .status-row strong{max-width:45%;line-height:1.5}
 body.popup-mode .phrase-reveal>div{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+
+/* Veylora premium refinement: restrained silver, clearer hierarchy, and responsive motion. */
+:root{--surface-1:#101216;--surface-2:#15181e;--line-soft:#292e37;--silver:#e6e9ee;--muted:#929ba8;--ease-out:cubic-bezier(.2,.8,.2,1)}
+body{background:radial-gradient(ellipse at 52% -12%,#343943 0%,#171a20 27%,#0b0c0f 68%);background-attachment:fixed}
+button{transition:transform .18s var(--ease-out),background .18s ease,border-color .18s ease,opacity .18s ease,box-shadow .18s ease}
+button:not(:disabled):hover{transform:translateY(-1px)}
+button:not(:disabled):active{transform:translateY(0) scale(.99)}
+.primary{background:linear-gradient(135deg,#f0f2f5,#c7ccd4);box-shadow:0 8px 24px #0003;color:#101115;font-weight:650}
+.primary:not(:disabled):hover{background:linear-gradient(135deg,#fff,#d7dbe2);box-shadow:0 10px 28px #0005}
+.secondary:not(:disabled):hover,.copy-address:hover{background:#20242b;border-color:#606875;color:#f2f3f5}
+.nav{transition:background .18s ease,border-color .18s ease,color .18s ease}
+.nav:not(:disabled):hover{background:#181b21;border-color:#2d323b}
+.nav.active{background:linear-gradient(110deg,#22262d,#15171c);border-color:#3b414b;box-shadow:inset 2px 0 #d6dbe3}
+.flow-card,.info-card,.status-panel,.engine-panel,.balance-panel,.history-panel{backdrop-filter:blur(14px)}
+.flow-card{border-color:#343943;background:linear-gradient(145deg,#171a20ed,#0d0f13f5);box-shadow:0 26px 90px #0005,0 1px 0 #ffffff08 inset;animation:veylora-enter .34s var(--ease-out) both}
+.hero-mark{border-radius:22px;border-color:#454b56;background:linear-gradient(145deg,#292e37,#101216 72%);box-shadow:0 16px 55px #0007,0 1px 0 #ffffff16 inset}
+.hero h2{line-height:1.06}
+.hero h2 span{background:linear-gradient(100deg,#f0f2f5,#9098a5);-webkit-background-clip:text;background-clip:text;color:transparent}
+.topbar{border-bottom-color:#343943}
+.network{background:#12151a;border-color:#434a55}
+.status-panel{border-color:#353b45;background:linear-gradient(135deg,#14171c,#0d0f12)}
+.status-row{font-size:11px}
+.status-row strong{font-size:9px;letter-spacing:.09em}
+.notice{max-width:560px;border-color:#343943;background:linear-gradient(120deg,#15181d,#101216)}
+.notice-icon{border-color:#555d69;color:#d5dae2}
+.notice strong{color:#e0e4eb}
+.notice p{color:#a1a9b5}
+.info-notice{border-color:#343a44;background:linear-gradient(120deg,#171a20,#111318)}
+.info-notice .notice-icon{border-color:#515966;color:#d9dee6}
+.info-notice strong{color:#e1e5eb}
+.info-notice p{color:#a3acb8}
+.info-card{background:linear-gradient(145deg,#15171c,#101115);border-color:#30353e;transition:transform .22s var(--ease-out),border-color .22s ease,background .22s ease}
+.info-card:hover{transform:translateY(-3px);border-color:#4b525e;background:linear-gradient(145deg,#1a1d23,#111318)}
+.info-card h3{font-size:12px;letter-spacing:-.01em}
+.info-card p{font-size:11px;line-height:1.75}
+.engine-panel{border-color:#343a44;background:linear-gradient(145deg,#111419,#0b0d10)}
+.address-block,.receive-address{border-color:#363c46;background:#0b0d11}
+.address-block code,.receive-address code{font-size:11px;line-height:1.85}
+.copy-address{transition:background .18s ease,border-color .18s ease}
+.balance-total{font-size:clamp(26px,4vw,34px);font-variant-numeric:tabular-nums}
+.feedback{backdrop-filter:blur(12px)}
+.feedback.success{border-color:#3b5044;background:#111813;color:#c7d9cc}
+.feedback.error{border-color:#65443e;background:#1b1211;color:#e8c2b9}
+.qr-frame{border-color:#3b414c;background:radial-gradient(circle at 50% 30%,#171a20,#08090b 75%);box-shadow:inset 0 1px #ffffff08,0 14px 38px #0003}
+footer{border-top-color:#343943}
+@keyframes veylora-enter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.rail{background:#0b0c0fef}.brand{font-size:11px}.hero{margin-top:38px}.flow-card{box-shadow:0 16px 50px #0004}.bottom-grid{gap:9px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
