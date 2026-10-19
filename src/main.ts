@@ -6,6 +6,7 @@ const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
 let engineBusy = false;
 let syncInProgress = false;
+let lastSyncSnapshot: { chainHeight: string; scannedHeight: string; shieldedBalance: number; transparentBalance: number; pendingBalance: number; history: { totalCount: number; transactions: Array<{ txid: string; type: number; value: string; confirmations: number; status: number }> } } | null = null;
 let lifecycleGeneration = 0;
 let syncVerified = false;
 let pendingTransferDetails: any = null;
@@ -254,6 +255,7 @@ async function vaultView(password?: string) {
       <div class="dashboard-footer-actions"><span><span class="secure-dot"></span> Keys stay on this device</span><button class="text-action" data-action="lock">Lock wallet</button></div>
     </section>`);
   void initializeEngineForPhrase(phrase, password);
+  if (lastSyncSnapshot) renderLastSyncSnapshot();
 }
 async function initializeEngineForPhrase(phrase: string, password?: string) {
   const generation = lifecycleGeneration;
@@ -322,6 +324,35 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
 }
 
 
+
+function renderLastSyncSnapshot() {
+  const snapshot = lastSyncSnapshot;
+  if (!snapshot) return;
+  const fullyScanned = Number(snapshot.scannedHeight) >= Number(snapshot.chainHeight);
+  syncVerified = fullyScanned;
+  const zec = (value: number) => (value / 100_000_000).toLocaleString("en-US", { minimumFractionDigits: 8, maximumFractionDigits: 8 });
+  const dashboardBalance = root!.querySelector<HTMLElement>("#dashboard-balance");
+  if (dashboardBalance) dashboardBalance.innerHTML = `<div class="balance-total">${zec(snapshot.shieldedBalance + snapshot.transparentBalance + snapshot.pendingBalance)} <small>ZEC</small></div><p>${fullyScanned ? "Scan reached the reported chain tip." : "Partial scan. Balance may not include all incoming activity."}</p>`;
+  const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+  if (walletChip) walletChip.textContent = fullyScanned ? "SYNCED" : "PARTIAL SCAN";
+  const syncState = root!.querySelector<HTMLElement>("#sync-state");
+  if (syncState) syncState.textContent = fullyScanned ? "At chain tip" : "Partial";
+  const syncDescription = root!.querySelector<HTMLElement>("#sync-description");
+  if (syncDescription) syncDescription.textContent = `Scanned ${snapshot.scannedHeight} of tip ${snapshot.chainHeight}`;
+  const status = root!.querySelector<HTMLElement>("#engine-status");
+  if (status) status.textContent = fullyScanned ? "Wallet synced to reported chain tip" : "Scan returned · more history may remain";
+  const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
+  if (sendNav) { sendNav.disabled = !fullyScanned; sendNav.classList.toggle("disabled-nav", !fullyScanned); sendNav.title = fullyScanned ? "Review a testnet transaction" : "Sync the testnet wallet before sending"; }
+  const dashboardSend = root!.querySelector<HTMLButtonElement>(".dashboard-actions [data-action='send']");
+  if (dashboardSend) { dashboardSend.disabled = !fullyScanned; const caption = dashboardSend.querySelector("small"); if (caption) caption.textContent = fullyScanned ? "Transfer testnet ZEC" : "Available after verified scan"; }
+  const historyContent = root!.querySelector<HTMLElement>("#history-content");
+  if (historyContent) {
+    const zecValue = (value: string) => (Number(value) / 100_000_000).toFixed(8);
+    const typeLabel = (type: number) => type === 0 ? "Received" : type === 1 ? "Sent" : type === 2 ? "Shielded" : "Transaction";
+    const statusLabel = (value: number) => value === 0 ? "Confirmed" : value === 1 ? "Pending" : value === 2 ? "Expired" : "Unknown";
+    historyContent.innerHTML = `<div class="history-panel"><div class="balance-title">Recent activity <span>${snapshot.history.totalCount} TOTAL</span></div>${snapshot.history.transactions.length ? snapshot.history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zecValue(tx.value)}<small>ZEC</small></div></div>`).join("") : '<p class="small-note">No transactions returned for this account yet. A partial scan may not include all activity.</p>'}</div>`;
+  }
+}
 
 function formatZatoshis(value: unknown): string {
   const amount = BigInt(String(value ?? "0"));
@@ -542,12 +573,13 @@ async function runSync() {
     const result = await syncTestnetWallet();
     await persistEncryptedWalletDatabase(result.database, engineState?.accountId ?? -1, password);
     const history = await getTestnetHistory();
+    lastSyncSnapshot = { ...result, history };
+    syncVerified = Number(result.scannedHeight) >= Number(result.chainHeight);
     status.textContent = `Sync returned · tip ${result.chainHeight} · scanned ${result.scannedHeight}`;
     const balanceContent = root!.querySelector<HTMLElement>("#balance-content");
     if (balanceContent) {
       const zec = (value: number) => (value / 100_000_000).toLocaleString("en-US", { minimumFractionDigits: 8, maximumFractionDigits: 8 });
       const fullyScanned = Number(result.scannedHeight) >= Number(result.chainHeight);
-      syncVerified = fullyScanned;
       const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
       if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); receiveNav.title = engineState ? "Show your testnet receive address" : "Derive an address before receiving"; }
       const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
