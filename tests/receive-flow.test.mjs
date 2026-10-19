@@ -36,6 +36,9 @@ test("premium styles respect reduced-motion preferences", () => {
   assert.match(styles, /\.info-notice/);
 });
 
-test("WebZjs engine dependency is declared", () => {
-  assert.equal(packageJson.dependencies["@chainsafe/webzjs-wallet"], "0.1.0");
+test("WebZjs engine is supplied by the pinned build workflow, not the npm registry", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/standalone-wallet-build.yml", import.meta.url), "utf8");
+  assert.equal(packageJson.dependencies["@chainsafe/webzjs-wallet"], undefined);
+  assert.match(workflow, /webzjs-wasm-packages-veylora-review-a50df944/);
+  assert.match(workflow, /cp -R \.engine\/packages\/webzjs-wallet node_modules\/@chainsafe\/webzjs-wallet/);
 });
