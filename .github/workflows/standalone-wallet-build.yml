@@ -6,6 +6,8 @@ on:
     paths:
       - "src/**"
       - "public/**"
+      - "dapp-provider.js"
+      - "dapp-content.js"
       - "wallet.html"
       - "manifest.json"
       - "package.json"
@@ -14,7 +16,18 @@ on:
       - "vite.config.ts"
       - ".github/workflows/standalone-wallet-build.yml"
   push:
-    branches: [feat/standalone-zcash-wallet]
+    branches: [feat/standalone-zcash-wallet, feat/market-dapp-provider]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "wallet.html"
+      - "manifest.json"
+      - "background.js"
+      - "dapp-provider.js"
+      - "dapp-content.js"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/standalone-wallet-build.yml"
   workflow_dispatch:
 
 permissions:
@@ -57,6 +70,8 @@ jobs:
         run: |
           test -f dist/manifest.json
           test -f dist/background.js
+          test -f dist/dapp-provider.js
+          test -f dist/dapp-content.js
           test -f dist/wallet.html
           test -f dist/assets/veylora-mark.svg
           test -f dist/icons/icon16.png
