@@ -17,4 +17,8 @@ for (const directory of ["assets", "licenses", "icons"]) {
   if (existsSync(source)) cpSync(source, resolve(distDir, directory), { recursive: true, force: true });
 }
 
-console.log("Copied Manifest V3 metadata, service worker, and local assets into dist/");
+for (const file of ["wallet.html", "popup.html"]) {
+  if (!existsSync(resolve(distDir, file))) throw new Error(`Required wallet entry is missing from dist: ${file}`);
+}
+
+console.log("Copied Manifest V3 metadata, service worker, wallet entries, and local assets into dist/");
