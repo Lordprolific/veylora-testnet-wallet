@@ -259,7 +259,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
   const addressContent = root!.querySelector<HTMLElement>("#address-content");
   if (!status || !addressContent) return;
   if (engineState) {
-    status.textContent = "Address ready · history scan disabled";
+    status.textContent = "Address ready";
     const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
     if (walletChip) walletChip.textContent = "ADDRESS READY";
     const addressState = root!.querySelector<HTMLElement>("#address-state");
@@ -289,7 +289,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     }
     if (generation !== lifecycleGeneration) { releaseTestnetWallet(); engineState = null; return; }
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
-    status.textContent = "Address ready · history scan disabled";
+    status.textContent = "Address ready";
     const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
     if (walletChip) walletChip.textContent = "ADDRESS READY";
     const addressState = root!.querySelector<HTMLElement>("#address-state");
@@ -326,7 +326,7 @@ function formatZatoshis(value: unknown): string {
 }
 
 function sendView() {
-  if (!syncVerified || !engineState || !getUnlockedRecoveryPhrase()) {
+  if (!engineState || !getUnlockedRecoveryPhrase()) {
     screen = "vault";
     void vaultView();
     return;
@@ -445,7 +445,7 @@ async function confirmSend() {
     if (authorizationStarted) {
       lastTransferResult = { txids: [], broadcastCompleted: false, broadcastError: message };
       pendingTransferDetails = null;
-      syncVerified = false;
+      
       cancelPendingTestnetTransfer();
       sendResultView();
     } else {
@@ -539,7 +539,7 @@ root.addEventListener("click", (event) => {
   else if (action === "reveal") { phraseVisible = !phraseVisible; void vaultView(); }
   else if (action === "copy-address" || action === "copy-transparent") { const address = action === "copy-address" ? engineState?.unifiedAddress : engineState?.transparentAddress; if (address) navigator.clipboard.writeText(address).then(() => feedback("Address copied."), () => feedback("Could not copy address. Select and copy it manually.", true)); }
   
-  else if (action === "lock") { if (engineBusy) { feedback("Wait for the active wallet operation to finish before locking.", true); return; } lifecycleGeneration += 1; lockVault(); cancelPendingTestnetTransfer(); pendingTransferDetails = null; releaseTestnetWallet(); engineState = null; syncVerified = false; phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
+  else if (action === "lock") { if (engineBusy) { feedback("Wait for the active wallet operation to finish before locking.", true); return; } lifecycleGeneration += 1; lockVault(); cancelPendingTestnetTransfer(); pendingTransferDetails = null; releaseTestnetWallet(); engineState = null;  phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
 });
 
 homeView();
