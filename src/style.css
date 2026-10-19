@@ -106,7 +106,7 @@ footer{border-top-color:#343943}
 .dashboard-heading h2{font:600 clamp(28px,3vw,38px)/1.1 Manrope,ui-sans-serif,system-ui,sans-serif;letter-spacing:-.055em;margin:8px 0 7px}
 .dashboard-heading p{color:#89919d;font-size:12px;margin:0;line-height:1.6}
 .account-chip{display:flex;align-items:center;gap:10px;border:1px solid #2b3038;background:#111318;border-radius:14px;padding:10px 13px;min-width:185px}
-.account-avatar{display:grid;place-items:center;width:35px;height:35px;border-radius:11px;background:linear-gradient(145deg,#d8dce2,#7e8693);color:#0a0b0d;font-weight:800;font-size:15px}
+.account-avatar{width:28px;height:28px;object-fit:contain;padding:5px;border:1px solid #383d46;border-radius:9px;background:#171a20;flex:none}
 .account-chip strong,.account-chip small{display:block}.account-chip strong{font-size:11px;color:#e7eaf0}.account-chip small{font-size:9px;color:#7f8793;margin-top:4px}
 .live-dot{width:6px;height:6px;border-radius:50%;background:#9fc59d;margin-left:auto}
 .balance-hero{position:relative;overflow:hidden;border:1px solid #373c46;border-radius:20px;padding:26px 28px 17px;background:radial-gradient(ellipse at 80% 0%,#292e38 0%,transparent 50%),linear-gradient(135deg,#171a20,#0d0f13 72%);box-shadow:0 24px 70px #0003}
