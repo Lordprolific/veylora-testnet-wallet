@@ -39,8 +39,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const request = { requestId, origin, tabId: sender.tab.id, method, params: Array.isArray(message.params) ? message.params : [], createdAt: Date.now() };
     pendingRequests.set(requestId, request);
     const approvalUrl = chrome.runtime.getURL("wallet.html") + "?dappApproval=" + encodeURIComponent(requestId);
-    chrome.tabs.create({ url: approvalUrl, active: true }).catch(() => {
-      pendingRequests.delete(requestId); sendResponse({ error: "Could not open the wallet approval screen.", code: -32603 });
+    // Use a compact extension window rather than a full browser tab for dApp approvals.
+    chrome.windows.create({ url: approvalUrl, type: "popup", width: 460, height: 700, focused: true }).catch(() => {
+      pendingRequests.delete(requestId); sendResponse({ error: "Could not open the wallet approval window.", code: -32603 });
     });
     const timeout = setTimeout(() => {
       if (!pendingRequests.has(requestId)) return;
