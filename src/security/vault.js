@@ -32,8 +32,8 @@ function fromBase64(value) {
 }
 
 function validatePassword(password) {
-  if (typeof password !== "string" || password.length < 12) {
-    throw new Error("Use a wallet password with at least 12 characters.");
+  if (typeof password !== "string" || password.length < 8) {
+    throw new Error("Use a wallet password with at least 8 characters.");
   }
   if (password.length > 1024) throw new Error("Password is too long.");
 }

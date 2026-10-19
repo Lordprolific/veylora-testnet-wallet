@@ -33,8 +33,13 @@ test("rejects a wrong password and modified ciphertext", async () => {
   await assert.rejects(decryptVaultSecret(tampered, password));
 });
 
-test("rejects weak passwords, empty secrets, and unknown envelope versions", async () => {
-  await assert.rejects(encryptVaultSecret("secret", "short"), /at least 12 characters/);
+test("accepts eight-character passwords and rejects shorter ones", async () => {
+  await assert.rejects(encryptVaultSecret("secret", "1234567"), /at least 8 characters/);
+  const envelope = await encryptVaultSecret("secret", "12345678");
+  assert.equal(await decryptVaultSecret(envelope, "12345678"), "secret");
+});
+
+test("rejects empty secrets and unknown envelope versions", async () => {
   await assert.rejects(encryptVaultSecret("", password), /non-empty secret/);
   const envelope = await encryptVaultSecret("private test data", password);
   await assert.rejects(
