@@ -603,7 +603,7 @@ async function handleDappApprovalFromUrl() {
       throw new Error("This wallet request is not supported.");
     }
     if (!response?.ok) feedback(response?.error || "Could not complete wallet approval.", true);
-    else { screen = "vault"; await vaultView(); }
+    else { window.close(); }
   } catch (error) {
     feedback(error instanceof Error ? error.message : "Could not process wallet approval.", true);
   } finally {
