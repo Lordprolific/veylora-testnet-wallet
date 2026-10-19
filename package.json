@@ -7,11 +7,13 @@
     "dev": "parcel wallet.html --port 4173",
     "build": "tsc --noEmit && node scripts/generate-icons.mjs && parcel build wallet.html popup.html --dist-dir dist --public-url ./ && node scripts/copy-extension-assets.mjs",
     "test:security": "node --test tests/*.test.mjs",
-    "preview": "parcel serve wallet.html --dist-dir dist --port 4174"
+    "preview": "parcel serve wallet.html --dist-dir dist --port 4174",
+    "test": "npm run test:security"
   },
   "dependencies": {
     "@scure/bip39": "2.0.1",
-    "qrcode": "1.5.4"
+    "qrcode": "1.5.4",
+    "@chainsafe/webzjs-wallet": "0.1.0"
   },
   "devDependencies": {
     "@types/qrcode": "1.5.5",
