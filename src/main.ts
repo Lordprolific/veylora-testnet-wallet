@@ -543,6 +543,8 @@ async function runSync() {
     if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); }
     const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
     if (sendNav) { sendNav.disabled = !syncVerified; sendNav.classList.toggle("disabled-nav", !syncVerified); }
+    const dashboardSend = root!.querySelector<HTMLButtonElement>(".dashboard-actions [data-action='send']");
+    if (dashboardSend) dashboardSend.disabled = !syncVerified;
   }
 }
 
