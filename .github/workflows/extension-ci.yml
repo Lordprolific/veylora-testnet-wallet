@@ -1,4 +1,4 @@
-name: Veylora extension CI
+name: Veylora UI regression tests
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  build-testnet-extension:
+  ui-regression:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -22,16 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
+      - name: Install UI test dependencies
         run: npm install --no-audit --no-fund
-      - name: Run regression tests
+      - name: Run receive-flow regression tests
         run: npm test
-      - name: Build Chrome extension
-        run: npm run build
-      - name: Upload installable extension ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: veylora-testnet-wallet-extension
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14
