@@ -259,6 +259,10 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     if (generation !== lifecycleGeneration) { releaseTestnetWallet(); engineState = null; return; }
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
     status.textContent = "Address ready · sync needed";
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = "ADDRESS READY";
+    const addressState = root!.querySelector<HTMLElement>("#address-state");
+    if (addressState) addressState.textContent = "Ready";
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
     if (statusLabels[2]) statusLabels[2].textContent = "SYNC NEEDED";
