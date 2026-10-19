@@ -210,6 +210,9 @@ function unlockView() {
       screen = "vault";
       await vaultView(password);
       feedback("Vault unlocked for this browser session.");
+      if (new URL(window.location.href).searchParams.has("dappApproval")) {
+        void handleDappApprovalFromUrl();
+      }
     } catch (error) { feedback(error instanceof Error ? error.message : "Could not unlock the vault.", true); }
   });
 }
@@ -557,15 +560,9 @@ async function handleDappApprovalFromUrl() {
       return;
     }
     if (!engineState || !getUnlockedRecoveryPhrase()) {
-      await runtime.sendMessage({
-        type: "VEY LORA_DAPP_APPROVAL_RESULT",
-        requestId,
-        approved: false,
-        error: "Unlock your Veylora wallet first, then return to the website and connect again."
-      });
       screen = "home";
       homeView();
-      feedback("Unlock your wallet before connecting it to a website.", true);
+      feedback("Unlock this wallet to review the connection request. Keep this tab open.", true);
       return;
     }
     const approved = window.confirm(
