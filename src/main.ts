@@ -44,10 +44,10 @@ function shell(content: string) {
       <aside class="rail">
         <div class="brand"><img src="./assets/veylora-mark.svg" alt="" /><span>VEY LORA</span></div>
         <div class="rail-label">WALLET</div>
-        <button class="nav ${screen === "home" ? "active" : ""}" data-action="home"><span>◈</span> Overview</button>
-        <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Sync the testnet wallet before sending"}><span>↗</span> Send</button>
-        <button class="nav ${screen === "receive" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="receive" ${engineState ? "" : "disabled"} title="${engineState ? "Show your testnet receive address" : "Create or unlock the wallet to derive an address"}><span>＋</span> Receive</button>
-        <button class="nav disabled-nav" disabled title="Activity will appear after the first successful sync"><span>↻</span> Activity</button>
+        <button class="nav ${screen === "home" || screen === "vault" ? "active" : ""}" data-action="${getUnlockedRecoveryPhrase() ? "vault" : "home"}"><span>▦</span> Overview</button>
+        <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Complete a wallet scan before sending"}"><span>↗</span> Send</button>
+        <button class="nav ${screen === "receive" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="receive" ${engineState ? "" : "disabled"} title="${engineState ? "Show your testnet receive address" : "Create or unlock the wallet to derive an address"}"><span>＋</span> Receive</button>
+        <button class="nav ${screen === "activity" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="activity" ${engineState ? "" : "disabled"} title="${engineState ? "View wallet activity" : "Unlock your wallet to view activity"}"><span>≋</span> Activity</button>
         <div class="rail-bottom"><div class="secure-dot"></div><span>Encrypted local vault</span></div>
       </aside>
       <main class="main">
@@ -118,6 +118,7 @@ function passwordView(mode: "create" | "restore") {
       <h2>${mode === "create" ? "Protect your wallet" : "Restore your wallet"}</h2>
       <p class="flow-copy">${mode === "create" ? "Create a strong password to encrypt your recovery phrase on this device. Use at least 8 characters." : "Enter your 24-word recovery phrase and choose a new local encryption password."}</p>
       ${mode === "restore" ? '<label class="field-label" for="recovery">24-word recovery phrase</label><textarea id="recovery" rows="4" autocomplete="off" spellcheck="false" placeholder="Enter your 24 words in order"></textarea>' : ""}
+      ${mode === "restore" ? '<div class="scan-choice"><label class="check-row"><input type="checkbox" id="new-testnet-wallet" /> This is a brand-new testnet wallet. Start scanning from the current chain tip instead of checking earlier history.</label><p>Leave this unchecked if you may have received testnet funds before today. Full-history recovery can take significantly longer.</p></div>' : ""}
       <form id="password-form">
         ${mode === "restore" && vaultExists() ? '<label class="check-row destructive-check"><input type="checkbox" id="replace-existing" required /> I understand this will replace the existing encrypted vault on this device.</label>' : ""}
         <label class="field-label" for="password">${mode === "restore" ? "New wallet password" : "Wallet password"}</label>
@@ -143,7 +144,8 @@ function passwordView(mode: "create" | "restore") {
     try {
       if (mode === "create") await createEncryptedVault(phrase, password);
       else await restoreEncryptedVault(phrase, password, !vaultExists() || Boolean(root!.querySelector<HTMLInputElement>("#replace-existing")?.checked));
-      localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: mode === "restore" ? 0 : null }));
+      const fastStart = mode === "restore" && Boolean(root!.querySelector<HTMLInputElement>("#new-testnet-wallet")?.checked);
+      localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: mode === "restore" && !fastStart ? 0 : null, scanMode: fastStart ? "current-tip" : mode === "restore" ? "full-history" : "new-wallet" }));
       pendingPhrase = "";
       screen = "vault";
       await vaultView(password);
@@ -181,23 +183,41 @@ function unlockView() {
 async function vaultView(password?: string) {
   const phrase = getUnlockedRecoveryPhrase();
   if (!phrase) { screen = "home"; return homeView(); }
-  shell(`
-    <section class="flow-card narrow">
-      <div class="eyebrow">LOCAL VAULT</div><h2>Vault unlocked</h2>
-      <p class="flow-copy">Your encrypted vault is open on this device. Once your address is derived and saved, you can receive Zcash testnet coins. Sync is used to discover incoming activity and update your balance; sending requires a completed scan.</p>
-      <div class="status-panel">
-        <div class="status-row"><span class="status-indicator status-ready"></span><span>Encrypted recovery phrase</span><strong>UNLOCKED</strong></div>
-        <div class="status-row"><span class="status-indicator"></span><span>Zcash account/address</span><strong>INITIALIZING</strong></div>
-        <div class="status-row"><span class="status-indicator"></span><span>Chain sync and payments</span><strong>NOT YET VERIFIED</strong></div>
+  screen = "vault";
+  shell(\`
+    <section class="wallet-dashboard">
+      <div class="dashboard-heading"><div><div class="eyebrow">YOUR WALLET</div><h2>Overview</h2><p>Self-custody, without the clutter.</p></div><div class="account-chip"><span class="account-avatar">V</span><span><strong>Veylora wallet</strong><small>Local vault · Testnet</small></span><span class="live-dot"></span></div></div>
+      <section class="balance-hero">
+        <div class="balance-hero-top"><span>Total testnet balance</span><span class="network-pill"><i></i> ZCASH TESTNET</span></div>
+        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Sync your wallet to discover your balance.</p></div>
+        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" \${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>\${syncVerified ? "Transfer testnet ZEC" : "Available after full scan"}</small></span></button></div>
+        <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><button data-action="sync" id="sync-button" class="text-action">Sync wallet <span>↻</span></button></div>
+      </section>
+      <div class="dashboard-grid">
+        <section class="dashboard-card network-card">
+          <div class="section-heading"><div><span class="section-kicker">NETWORK</span><h3>Wallet status</h3></div><span class="status-chip" id="wallet-state-chip">INITIALIZING</span></div>
+          <div class="wallet-state-row"><span class="state-icon">◈</span><span><strong>Encrypted vault</strong><small>Your recovery phrase is unlocked locally</small></span><b class="state-good">Unlocked</b></div>
+          <div class="wallet-state-row"><span class="state-icon">⌁</span><span><strong>Account address</strong><small>Derived on this device</small></span><b id="address-state">Loading</b></div>
+          <div class="wallet-state-row"><span class="state-icon">↻</span><span><strong>Chain sync</strong><small id="sync-description">Balance and activity need a scan</small></span><b id="sync-state">Needed</b></div>
+          <div id="engine-status" class="sync-status-line"><span class="status-indicator"></span> Initializing testnet engine…</div>
+          <div id="sync-progress" class="sync-progress" hidden><div class="sync-progress-track"><span></span></div><p id="sync-progress-copy">Preparing scan…</p></div>
+          <div id="engine-error" class="engine-error" hidden></div>
+        </section>
+        <section class="dashboard-card quick-card">
+          <div class="section-heading"><div><span class="section-kicker">QUICK ACCESS</span><h3>Manage wallet</h3></div></div>
+          <button class="manage-row" data-action="receive"><span class="manage-icon">↓</span><span><strong>Receive ZEC</strong><small>QR code and address details</small></span><span class="manage-chevron">↗</span></button>
+          <button class="manage-row" data-action="activity" \${engineState ? "" : "disabled"}><span class="manage-icon">≋</span><span><strong>Recent activity</strong><small>Incoming and outgoing transactions</small></span><span class="manage-chevron">↗</span></button>
+          <button class="manage-row" data-action="reveal"><span class="manage-icon">⌑</span><span><strong>Recovery phrase</strong><small>View your private backup</small></span><span class="manage-chevron">↗</span></button>
+          <button class="manage-row" data-action="lock"><span class="manage-icon">⏻</span><span><strong>Lock wallet</strong><small>Close this unlocked session</small></span><span class="manage-chevron">↗</span></button>
+        </section>
       </div>
-      <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Address generation happens locally. Sync checks for incoming activity and refreshes balances; transaction actions are enabled only after the required scan completes.</p><div id="address-content"></div><div id="balance-content"></div><div id="history-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
-      <button class="secondary full-button" data-action="reveal">${phraseVisible ? "Hide recovery phrase" : "Reveal recovery phrase"}</button>
-      ${phraseVisible ? `<div class="phrase-reveal"><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></div>` : ""}
-      <div class="actions"><button class="secondary" data-action="lock">Lock wallet</button><button class="secondary" data-action="home">Overview</button></div>
-    </section>`);
+      <section class="dashboard-card address-summary"><div class="section-heading"><div><span class="section-kicker">RECEIVE</span><h3>Your testnet address</h3></div><button class="text-action" data-action="receive">View details ↗</button></div><div id="address-content"><div class="address-placeholder">Deriving your address locally…</div></div></section>
+      <section class="dashboard-card activity-summary"><div class="section-heading"><div><span class="section-kicker">ACTIVITY</span><h3>Recent transactions</h3></div><button class="text-action" data-action="activity">View all ↗</button></div><div id="history-content"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Activity will appear here</strong><p>Sync your wallet to discover incoming and outgoing transactions.</p></div></div></section>
+      \${phraseVisible ? \`<section class="dashboard-card phrase-reveal"><div class="section-heading"><div><span class="section-kicker">PRIVATE BACKUP</span><h3>Recovery phrase</h3></div><button class="text-action" data-action="reveal">Hide phrase</button></div><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>\${phrase.split(" ").map((word, i) => \`<span><small>\${i + 1}</small>\${escapeHtml(word)}</span>\`).join("")}</div></section>\` : ""}
+      <div class="dashboard-footer-actions"><span><span class="secure-dot"></span> Keys stay on this device</span><button class="text-action" data-action="lock">Lock wallet</button></div>
+    </section>\`);
   void initializeEngineForPhrase(phrase, password);
 }
-
 async function initializeEngineForPhrase(phrase: string, password?: string) {
   const generation = lifecycleGeneration;
   const status = root!.querySelector<HTMLElement>("#engine-status");
