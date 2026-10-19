@@ -28,7 +28,7 @@ import {
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("Wallet root element is missing");
 
-type Screen = "home" | "create-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive" | "send" | "send-review" | "send-result";
+type Screen = "home" | "create-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive" | "activity" | "send" | "send-review" | "send-result";
 let screen: Screen = "home";
 let pendingPhrase = "";
 let phraseVisible = false;
