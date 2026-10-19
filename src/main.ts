@@ -116,14 +116,14 @@ function passwordView(mode: "create" | "restore") {
       <button class="back-link" data-action="${mode === "create" ? "phrase-back" : "home"}">← Back</button>
       <div class="eyebrow">${mode === "create" ? "STEP 2 OF 2 · ENCRYPTION" : "WALLET RECOVERY"}</div>
       <h2>${mode === "create" ? "Protect your wallet" : "Restore your wallet"}</h2>
-      <p class="flow-copy">${mode === "create" ? "Create a strong password to encrypt your recovery phrase on this device. Use at least 12 characters." : "Enter your 24-word recovery phrase and choose a new local encryption password."}</p>
+      <p class="flow-copy">${mode === "create" ? "Create a strong password to encrypt your recovery phrase on this device. Use at least 8 characters." : "Enter your 24-word recovery phrase and choose a new local encryption password."}</p>
       ${mode === "restore" ? '<label class="field-label" for="recovery">24-word recovery phrase</label><textarea id="recovery" rows="4" autocomplete="off" spellcheck="false" placeholder="Enter your 24 words in order"></textarea>' : ""}
       <form id="password-form">
         ${mode === "restore" && vaultExists() ? '<label class="check-row destructive-check"><input type="checkbox" id="replace-existing" required /> I understand this will replace the existing encrypted vault on this device.</label>' : ""}
         <label class="field-label" for="password">${mode === "restore" ? "New wallet password" : "Wallet password"}</label>
-        <input id="password" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required placeholder="At least 12 characters" />
+        <input id="password" type="password" minlength="8" maxlength="1024" autocomplete="new-password" required placeholder="At least 8 characters" />
         <label class="field-label" for="password-confirm">Confirm password</label>
-        <input id="password-confirm" type="password" minlength="12" maxlength="1024" autocomplete="new-password" required placeholder="Enter it again" />
+        <input id="password-confirm" type="password" minlength="8" maxlength="1024" autocomplete="new-password" required placeholder="Enter it again" />
         <div class="password-hint">This password encrypts your local vault. If you forget it, you must restore with your recovery phrase.</div>
         <button class="primary form-submit" type="submit" ${busy ? "disabled" : ""}>${mode === "create" ? "Encrypt and create vault" : "Restore and encrypt vault"} <span>↗</span></button>
       </form>
@@ -132,7 +132,7 @@ function passwordView(mode: "create" | "restore") {
     event.preventDefault();
     const password = root!.querySelector<HTMLInputElement>("#password")?.value ?? "";
     const confirm = root!.querySelector<HTMLInputElement>("#password-confirm")?.value ?? "";
-    if (password.length < 12) return feedback("Use at least 12 characters for the password.", true);
+    if (password.length < 8) return feedback("Use at least 8 characters for the password.", true);
     if (password !== confirm) return feedback("The passwords do not match.", true);
     let phrase = pendingPhrase;
     if (mode === "restore") {
