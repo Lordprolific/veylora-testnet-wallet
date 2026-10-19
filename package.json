@@ -11,7 +11,6 @@
     "test": "npm run test:security"
   },
   "dependencies": {
-    "@chainsafe/webzjs-wallet": "latest",
     "@scure/bip32": "^1.6.2",
     "@scure/bip39": "2.0.1",
     "@noble/curves": "^1.9.7",
