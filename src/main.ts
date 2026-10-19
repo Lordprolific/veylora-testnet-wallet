@@ -207,6 +207,11 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
   if (!status || !panel || !addressContent || !syncButton) return;
   if (engineState) {
     status.textContent = "Address ready · sync needed";
+    const accountLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
+    if (accountLabels[1]) accountLabels[1].textContent = "DERIVED LOCALLY";
+    if (accountLabels[2]) accountLabels[2].textContent = "SYNC NEEDED";
+    const indicator = panel.querySelector(".engine-panel-head .status-indicator");
+    indicator?.classList.add("status-ready");
     addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
@@ -231,7 +236,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     status.textContent = "Address ready · sync needed";
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
-    if (statusLabels[2]) statusLabels[2].textContent = "NOT YET VERIFIED";
+    if (statusLabels[2]) statusLabels[2].textContent = "SYNC NEEDED";
     panel.querySelector(".engine-panel-head .status-indicator")?.classList.add("status-ready");
     addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
@@ -416,8 +421,6 @@ async function runSync() {
   const button = root!.querySelector<HTMLButtonElement>("#sync-button");
   if (!status || !button || engineBusy) return;
   engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Syncing testnet…";
-  const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
-  if (receiveNav) { receiveNav.disabled = true; receiveNav.classList.add("disabled-nav"); }
   const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
   if (sendNav) { sendNav.disabled = true; sendNav.classList.add("disabled-nav"); }
   try {
@@ -450,7 +453,14 @@ async function runSync() {
   } catch (error) {
     status.textContent = "Sync failed";
     feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
-  } finally { engineBusy = false; button.disabled = false; }
+  } finally {
+    engineBusy = false;
+    button.disabled = false;
+    const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+    if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); }
+    const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
+    if (sendNav) { sendNav.disabled = !syncVerified; sendNav.classList.toggle("disabled-nav", !syncVerified); }
+  }
 }
 
 function feedback(message: string, error = false) {
