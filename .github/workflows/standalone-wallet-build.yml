@@ -25,6 +25,7 @@ on:
       - "background.js"
       - "dapp-provider.js"
       - "dapp-content.js"
+      - "scripts/copy-extension-assets.mjs"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/standalone-wallet-build.yml"
