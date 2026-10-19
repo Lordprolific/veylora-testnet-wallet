@@ -6,6 +6,7 @@ import { createTestnetAccount, restoreTestnetAccount, getTestnetHistory, prepare
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
 let engineBusy = false;
+let engineReadyPromise: Promise<void> | null = null;
 let lifecycleGeneration = 0;
 let pendingTransferDetails: any = null;
 let transferRecipient = "";
@@ -254,7 +255,7 @@ async function vaultView(password?: string) {
       ${phraseVisible ? `<section class="dashboard-card phrase-reveal"><div class="section-heading"><div><span class="section-kicker">PRIVATE BACKUP</span><h3>Recovery phrase</h3></div><button class="text-action" data-action="reveal">Hide phrase</button></div><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></section>` : ""}
       <div class="dashboard-footer-actions"><span><span class="secure-dot"></span> Keys stay on this device</span><button class="text-action" data-action="lock">Lock wallet</button></div>
     </section>`);
-  void initializeEngineForPhrase(phrase, password);
+  engineReadyPromise = initializeEngineForPhrase(phrase, password);
 }
 async function initializeEngineForPhrase(phrase: string, password?: string) {
   const generation = lifecycleGeneration;
@@ -561,11 +562,21 @@ async function handleDappApprovalFromUrl() {
       feedback("This wallet request expired. Return to Veylora Market and try again.", true);
       return;
     }
-    if (!engineState || !getUnlockedRecoveryPhrase()) {
+    if (!getUnlockedRecoveryPhrase()) {
       keepRequest = true;
       screen = "home";
       homeView();
       feedback("Unlock your wallet, then return to this approval tab to continue.", true);
+      return;
+    }
+    // Unlocking the encrypted vault and deriving the Zcash account are separate async steps.
+    // Wait for derivation instead of dropping a valid dApp request during that gap.
+    if (!engineState && engineReadyPromise) await engineReadyPromise;
+    if (!engineState) {
+      keepRequest = true;
+      screen = "vault";
+      await vaultView();
+      feedback("Your wallet is unlocked, but its testnet account is still unavailable. Keep this tab open and retry after the address is ready.", true);
       return;
     }
     let response: any;
