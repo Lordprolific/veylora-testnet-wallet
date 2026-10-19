@@ -2,15 +2,6 @@ name: WebZjs engine source build
 
 on:
   workflow_dispatch:
-  push:
-    branches: [feat/webzjs-reproducible-engine-build]
-    paths:
-      - ".github/workflows/webzjs-engine-build.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - ".github/workflows/webzjs-engine-build.yml"
-      - "docs/ENGINE-INTEGRATION-RESEARCH.md"
 
 permissions:
   contents: read
@@ -50,6 +41,9 @@ jobs:
           cargo +stable install wasm-pack --locked
           cargo +stable install just --locked
 
+      - name: Expose proposal details for explicit transaction review
+        run: node scripts/patch-webzjs-proposal-review.mjs
+
       - name: Build WebZjs WASM packages
         working-directory: .engine/WebZjs
         run: just build
@@ -64,9 +58,9 @@ jobs:
       - name: Upload generated engine packages for inspection
         uses: actions/upload-artifact@v4
         with:
-          name: webzjs-wasm-packages-a50df944
+          name: webzjs-wasm-packages-veylora-review-a50df944
           path: |
             .engine/WebZjs/packages/webzjs-wallet
             .engine/WebZjs/packages/webzjs-keys
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30

@@ -1,13 +1,6 @@
-chrome.action.onClicked.addListener(async () => {
-  const url = chrome.runtime.getURL("wallet.html");
-  const tabs = await chrome.tabs.query({ url });
-  const existing = tabs.find((tab) => typeof tab.id === "number");
-  if (existing?.id !== undefined) {
-    await chrome.tabs.update(existing.id, { active: true });
-    if (existing.windowId !== undefined) {
-      await chrome.windows.update(existing.windowId, { focused: true });
-    }
-    return;
-  }
-  await chrome.tabs.create({ url, active: true });
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL("wallet.html"),
+    active: true,
+  });
 });
