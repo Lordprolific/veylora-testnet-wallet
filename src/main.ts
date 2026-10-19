@@ -444,17 +444,53 @@ async function receiveView() {
   }
 }
 
+async function activityView() {
+  if (!engineState || !getUnlockedRecoveryPhrase()) { screen = "vault"; return void vaultView(); }
+  screen = "activity";
+  shell(`
+    <section class="activity-page">
+      <button class="back-link" data-action="vault">← Back to overview</button>
+      <div class="dashboard-heading"><div><div class="eyebrow">WALLET HISTORY</div><h2>Activity</h2><p>Transactions returned by the Zcash testnet wallet engine.</p></div><span class="network-pill"><i></i> TESTNET</span></div>
+      <section class="dashboard-card activity-full"><div class="section-heading"><div><span class="section-kicker">TRANSACTIONS</span><h3>Recent activity</h3></div><button class="text-action" data-action="sync">Refresh scan ↻</button></div><div id="activity-list"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Loading activity…</strong><p>Reading local wallet history.</p></div></div></section>
+    </section>`);
+  try {
+    const history = await getTestnetHistory();
+    const target = root!.querySelector<HTMLElement>("#activity-list");
+    if (!target) return;
+    const zec = (value: string) => (Number(value) / 100_000_000).toFixed(8);
+    const typeLabel = (type: number) => type === 0 ? "Received" : type === 1 ? "Sent" : type === 2 ? "Shielded" : "Transaction";
+    const statusLabel = (value: number) => value === 0 ? "Confirmed" : value === 1 ? "Pending" : value === 2 ? "Expired" : "Unknown";
+    target.innerHTML = history.transactions.length ? history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zec(tx.value)}<small>ZEC</small></div></div>`).join("") : '<div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>No transactions found</strong><p>No activity was returned for this account yet. A partial scan may not include all past activity.</p></div>';
+  } catch (error) {
+    const target = root!.querySelector<HTMLElement>("#activity-list");
+    if (target) target.innerHTML = `<p class="small-note">${escapeHtml(error instanceof Error ? error.message : "Could not read wallet history.")}</p>`;
+  }
+}
+
 async function runSync() {
   const status = root!.querySelector<HTMLElement>("#engine-status");
   const button = root!.querySelector<HTMLButtonElement>("#sync-button");
+  const progress = root!.querySelector<HTMLElement>("#sync-progress");
+  const progressCopy = root!.querySelector<HTMLElement>("#sync-progress-copy");
   if (!status || !button || engineBusy) return;
-  engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Syncing testnet…";
+  engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Preparing testnet scan…";
+  if (progress) progress.hidden = false;
+  if (progressCopy) progressCopy.textContent = "Connecting to the Zcash testnet service…";
+  let syncTimer: number | undefined;
+  let syncStartedAt = 0;
   const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
   if (sendNav) { sendNav.disabled = true; sendNav.classList.add("disabled-nav"); }
   try {
     const password = window.prompt("Enter your wallet password to encrypt and save the updated testnet wallet database on this device.");
     if (!password) { status.textContent = "Sync cancelled"; return; }
     await verifyWalletPassword(password);
+    syncStartedAt = Date.now();
+    status.textContent = "Connecting to testnet…";
+    syncTimer = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - syncStartedAt) / 1000);
+      if (status.isConnected) status.textContent = elapsed < 10 ? "Connecting to testnet…" : elapsed < 30 ? "Scanning wallet history…" : "Still scanning wallet history…";
+      if (progressCopy) progressCopy.textContent = elapsed < 10 ? "Waiting for the testnet service to respond…" : elapsed < 30 ? "Scan running · " + elapsed + "s elapsed" : elapsed < 90 ? "This scan can take time, especially after restoring a recovery phrase · " + elapsed + "s elapsed" : "Long scan detected · " + elapsed + "s elapsed. Full-history recovery starts at the wallet birthday and can take significantly longer.";
+    }, 1000);
     const result = await syncTestnetWallet();
     await persistEncryptedWalletDatabase(result.database, engineState?.accountId ?? -1, password);
     const history = await getTestnetHistory();
@@ -470,6 +506,18 @@ async function runSync() {
       if (sendNav) { sendNav.disabled = !fullyScanned; sendNav.classList.toggle("disabled-nav", !fullyScanned); sendNav.title = fullyScanned ? "Review a testnet transaction" : "Sync the testnet wallet before sending"; }
       balanceContent.innerHTML = `<div class="balance-panel"><div class="balance-title">Observed testnet balance <span>${fullyScanned ? "SCAN AT TIP" : "PARTIAL SCAN"}</span></div><div class="balance-total">${zec(result.shieldedBalance + result.transparentBalance + result.pendingBalance)} <small>ZEC</small></div><div class="balance-breakdown"><div><span>Shielded</span><strong>${zec(result.shieldedBalance)}</strong></div><div><span>Transparent</span><strong>${zec(result.transparentBalance)}</strong></div><div><span>Pending</span><strong>${zec(result.pendingBalance)}</strong></div></div><p class="small-note">${fullyScanned ? "The wallet reports its scan at the current chain tip. Verify with transaction history before relying on this balance." : "This is a partial scan and may not include all incoming activity. Keep syncing until the scanned height catches up."}</p></div>`;
     }
+    const dashboardBalance = root!.querySelector<HTMLElement>("#dashboard-balance");
+    const fullyScannedDashboard = Number(result.scannedHeight) >= Number(result.chainHeight);
+    const dashboardZec = (value: number) => (value / 100_000_000).toLocaleString("en-US", { minimumFractionDigits: 8, maximumFractionDigits: 8 });
+    if (dashboardBalance) dashboardBalance.innerHTML = "<div class=\"balance-total\">" + dashboardZec(result.shieldedBalance + result.transparentBalance + result.pendingBalance) + " <small>ZEC</small></div><p>" + (fullyScannedDashboard ? "Scan reached the reported chain tip." : "Partial scan. Balance may not include all incoming activity.") + "</p>";
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = fullyScannedDashboard ? "SYNCED" : "PARTIAL SCAN";
+    const syncState = root!.querySelector<HTMLElement>("#sync-state");
+    if (syncState) syncState.textContent = fullyScannedDashboard ? "At chain tip" : "Partial";
+    const syncDescription = root!.querySelector<HTMLElement>("#sync-description");
+    if (syncDescription) syncDescription.textContent = "Scanned " + result.scannedHeight + " of tip " + result.chainHeight;
+    const progressBar = root!.querySelector<HTMLElement>(".sync-progress-track span");
+    if (progressBar) progressBar.style.width = fullyScannedDashboard ? "100%" : "70%";
     const historyContent = root!.querySelector<HTMLElement>("#history-content");
     if (historyContent) {
       const zec = (value: string) => (Number(value) / 100_000_000).toFixed(8);
@@ -477,11 +525,17 @@ async function runSync() {
       const statusLabel = (value: number) => value === 0 ? "Confirmed" : value === 1 ? "Pending" : value === 2 ? "Expired" : "Unknown";
       historyContent.innerHTML = `<div class="history-panel"><div class="balance-title">Recent activity <span>${history.totalCount} TOTAL</span></div>${history.transactions.length ? history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zec(tx.value)}<small>ZEC</small></div></div>`).join("") : '<p class="small-note">No transactions returned for this account yet. A partial scan may not include all activity.</p>'}</div>`;
     }
+    if (progress) progress.hidden = true;
+    status.textContent = syncVerified ? "Wallet synced to reported chain tip" : "Scan completed · more history may remain";
     feedback("The latest testnet scan result and transaction history were loaded. Verify scan completeness before relying on this data.");
   } catch (error) {
     status.textContent = "Sync failed";
+    const engineError = root!.querySelector<HTMLElement>("#engine-error");
+    if (engineError) { engineError.hidden = false; engineError.textContent = error instanceof Error ? error.message : "Testnet synchronization failed."; }
+    if (progress) progress.hidden = true;
     feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
   } finally {
+    if (syncTimer !== undefined) window.clearInterval(syncTimer);
     engineBusy = false;
     button.disabled = false;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
@@ -517,6 +571,7 @@ root.addEventListener("click", (event) => {
   else if (action === "unlock") { screen = "unlock"; unlockView(); }
   else if (action === "vault") { screen = "vault"; void vaultView(); }
   else if (action === "receive") { void receiveView(); }
+  else if (action === "activity") { void activityView(); }
   else if (action === "send") { sendView(); }
   else if (action === "cancel-transfer") { cancelPendingTestnetTransfer(); pendingTransferDetails = null; screen = "send"; sendView(); }
   else if (action === "confirm-send") { void confirmSend(); }
