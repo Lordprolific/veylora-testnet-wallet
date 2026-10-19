@@ -32,5 +32,26 @@
   },
   "host_permissions": [
     "https://zcash-testnet.chainsafe.dev/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*/*"
+      ],
+      "js": [
+        "dapp-content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dapp-provider.js"
+      ],
+      "matches": [
+        "https://*/*"
+      ]
+    }
   ]
 }
