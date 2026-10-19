@@ -223,7 +223,7 @@ async function vaultView(password?: string) {
       <div class="dashboard-heading"><div><div class="eyebrow">YOUR WALLET</div><h2>Overview</h2><p>Self-custody, without the clutter.</p></div><div class="account-chip"><img class="account-avatar" src="./assets/veylora-mark.svg" alt="" /><span><strong>Veylora wallet</strong><small>Local vault · Testnet</small></span><span class="live-dot"></span></div></div>
       <section class="balance-hero">
         <div class="balance-hero-top"><span>Total testnet balance</span><span class="network-pill"><i></i> ZCASH TESTNET</span></div>
-        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Balance unavailable. Full-history scanning is disabled.</p></div><div id="balance-content" hidden></div>
+        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Balance will appear when network data is available.</p></div><div id="balance-content" hidden></div>
         <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" ${true ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>Transfer testnet ZEC</small></span></button></div>
         <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><span class="small-note">Network data loads independently</span></div>
       </section>
@@ -232,7 +232,7 @@ async function vaultView(password?: string) {
           <div class="section-heading"><div><span class="section-kicker">NETWORK</span><h3>Wallet status</h3></div><span class="status-chip" id="wallet-state-chip">INITIALIZING</span></div>
           <div class="wallet-state-row"><span class="state-icon">◈</span><span><strong>Encrypted vault</strong><small>Your recovery phrase is unlocked locally</small></span><b class="state-good">Unlocked</b></div>
           <div class="wallet-state-row"><span class="state-icon">⌁</span><span><strong>Account address</strong><small>Derived on this device</small></span><b id="address-state">Loading</b></div>
-          <div class="wallet-state-row"><span class="state-icon">↻</span><span><strong>Chain sync</strong><small id="sync-description">Network data independent</small></span><b id="sync-state">Needed</b></div>
+          <div class="wallet-state-row"><span class="state-icon">●</span><span><strong>Network</strong><small id="sync-description">Wallet opened locally</small></span><b id="sync-state">Ready</b></div>
           <div id="engine-status" class="sync-status-line"><span class="status-indicator"></span> Initializing testnet engine…</div>
           
           <div id="engine-error" class="engine-error" hidden></div>
@@ -298,7 +298,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
     if (statusLabels[2]) statusLabels[2].textContent = "SCAN DISABLED";
     root!.querySelector(".sync-status-line .status-indicator")?.classList.add("status-ready");
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Balance and activity update when network data is available.</p>`;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
     if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
     root!.querySelectorAll<HTMLButtonElement>('[data-action="activity"]').forEach((activityButton) => { activityButton.disabled = false; activityButton.classList.remove("disabled-nav"); });
@@ -309,7 +309,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     if (walletChip) walletChip.textContent = "UNAVAILABLE";
     const engineError = root!.querySelector<HTMLElement>("#engine-error");
     if (engineError) { engineError.hidden = false; engineError.textContent = error instanceof Error ? error.message : "WebZjs could not initialize in this extension context."; }
-    addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Your encrypted vault remains saved. Receiving becomes available when address derivation succeeds; syncing is required to display a current balance.</p>`;
+    addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Your encrypted vault remains saved. Receiving becomes available when address derivation succeeds; balances depend on network data.</p>`;
     feedback("The vault is encrypted, but the testnet engine could not initialize. Review the engine error and retry.", true);
   }
 }
@@ -463,7 +463,7 @@ async function receiveView() {
       <button class="back-link" data-action="vault">← Back to wallet</button>
       <div class="eyebrow">ZCASH TESTNET · RECEIVE</div>
       <h2>Receive ZEC</h2>
-      <p class="flow-copy">Share this address to receive Zcash testnet coins. Incoming activity and balances appear after you sync the wallet. Testnet coins have no monetary value.</p>
+      <p class="flow-copy">Share this address to receive Zcash testnet coins. Incoming activity and balances appear when network data is available. Testnet coins have no monetary value.</p>
       <div class="qr-frame"><div id="receive-qr" class="qr-placeholder">Generating QR…</div></div>
       <label class="field-label">Unified address</label>
       <div class="receive-address"><code>${escapeHtml(engineState.unifiedAddress)}</code></div>
@@ -487,7 +487,7 @@ async function activityView() {
     <section class="activity-page">
       <button class="back-link" data-action="vault">← Back to overview</button>
       <div class="dashboard-heading"><div><div class="eyebrow">WALLET HISTORY</div><h2>Activity</h2><p>Transactions returned by the Zcash testnet wallet engine.</p></div><span class="network-pill"><i></i> TESTNET</span></div>
-      <section class="dashboard-card activity-full"><div class="section-heading"><div><span class="section-kicker">TRANSACTIONS</span><h3>Recent activity</h3></div><button class="text-action" data-action="vault">Sync from overview ↗</button></div><div id="activity-list"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Loading activity…</strong><p>Reading local wallet history.</p></div></div></section>
+      <section class="dashboard-card activity-full"><div class="section-heading"><div><span class="section-kicker">TRANSACTIONS</span><h3>Recent activity</h3></div><button class="text-action" data-action="vault">Back to overview ↗</button></div><div id="activity-list"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Loading activity…</strong><p>Reading local wallet history.</p></div></div></section>
     </section>`);
     try {
     const history = await getTestnetHistory();
@@ -496,7 +496,7 @@ async function activityView() {
     const zec = (value: string) => (Number(value) / 100_000_000).toFixed(8);
     const typeLabel = (type: number) => type === 0 ? "Received" : type === 1 ? "Sent" : type === 2 ? "Shielded" : "Transaction";
     const statusLabel = (value: number) => value === 0 ? "Confirmed" : value === 1 ? "Pending" : value === 2 ? "Expired" : "Unknown";
-    target.innerHTML = history.transactions.length ? history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zec(tx.value)}<small>ZEC</small></div></div>`).join("") : '<div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>No transactions found</strong><p>No activity was returned for this account yet. A partial scan may not include all past activity.</p></div>';
+    target.innerHTML = history.transactions.length ? history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zec(tx.value)}<small>ZEC</small></div></div>`).join("") : '<div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>No transactions found</strong><p>No activity was returned for this account yet. No activity has been returned for this account yet.</p></div>';
   } catch (error) {
     const target = root!.querySelector<HTMLElement>("#activity-list");
     if (target) target.innerHTML = `<p class="small-note">${escapeHtml(error instanceof Error ? error.message : "Could not read wallet history.")}</p>`;
