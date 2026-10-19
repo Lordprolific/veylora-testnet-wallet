@@ -1,11 +1,11 @@
 {
   "name": "veylora-zcash-wallet",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "scripts": {
     "dev": "parcel wallet.html --port 4173",
-    "build": "tsc --noEmit && node scripts/generate-icons.mjs && parcel build wallet.html --dist-dir dist --public-url ./ && node scripts/copy-extension-assets.mjs",
+    "build": "tsc --noEmit && node scripts/generate-icons.mjs && parcel build wallet.html popup.html --dist-dir dist --public-url ./ && node scripts/copy-extension-assets.mjs",
     "test:security": "node --test tests/*.test.mjs",
     "preview": "parcel serve wallet.html --dist-dir dist --port 4174"
   },
