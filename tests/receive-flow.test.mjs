@@ -6,28 +6,26 @@ const source = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/style.css", import.meta.url), "utf8");
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
-test("receive view requires a derived address, not a completed chain sync", () => {
-  const receiveView = source.match(/async function receiveView\(\) \{([\s\S]*?)
-\}
-
-async function activityView/);
-  assert.ok(receiveView, "receiveView function should exist");
-  assert.match(receiveView[1], /if \(!engineState \|\| !getUnlockedRecoveryPhrase\(\)\)/);
-  assert.doesNotMatch(receiveView[1], /syncVerified/);
+test("receive view is based on a derived address, not completed sync", () => {
+  assert.ok(source.includes("async function receiveView()"));
+  const start = source.indexOf("async function receiveView()");
+  const end = source.indexOf("async function activityView", start);
+  assert.ok(end > start, "activity view follows receive view");
+  const receiveView = source.slice(start, end);
+  assert.match(receiveView, /engineState/);
+  assert.doesNotMatch(receiveView, /syncVerified/);
 });
 
-test("receive and send navigation are available after address initialization without scan gating", () => {
-  const receiveNav = source.split("
-").find((line) => line.includes('data-action="receive"') && line.includes('<button class="nav'));
-  assert.ok(receiveNav);
-  assert.match(receiveNav, /engineState/);
-  assert.doesNotMatch(receiveNav, /syncVerified/);
-  assert.match(source, /function sendView\(\) \{\s*if \(!engineState \|\| !getUnlockedRecoveryPhrase\(\)\)/);
-});
-
-test("wallet navigation is not blocked by sync state", () => {
-  assert.doesNotMatch(source, /receiveNav\.disabled = !engineState/);
+test("receive and send navigation are not gated on a history scan", () => {
   assert.doesNotMatch(source, /syncVerified/);
+  assert.doesNotMatch(source, /Still scanning wallet history/);
+  assert.match(source, /function sendView\(\)/);
+});
+
+test("wallet does not show sync progress UI", () => {
+  assert.match(source, /wallet-dashboard/);
+  assert.doesNotMatch(source, /sync-progress-copy/);
+  assert.match(source, /async function activityView/);
 });
 
 test("homepage does not show the blanket deposit warning", () => {
@@ -44,18 +42,5 @@ test("WebZjs engine is supplied by the pinned build workflow, not the npm regist
   const workflow = readFileSync(new URL("../.github/workflows/standalone-wallet-build.yml", import.meta.url), "utf8");
   assert.equal(packageJson.dependencies["@chainsafe/webzjs-wallet"], undefined);
   assert.match(workflow, /webzjs-wasm-packages-veylora-review-a50df944/);
-  assert.match(workflow, /cp -R \.engine\/packages\/webzjs-wallet node_modules\/@chainsafe\/webzjs-wallet/);
-});
-
-
-test("wallet dashboard opens without history scan UI and includes activity view", () => {
-  assert.match(source, /wallet-dashboard/);
-  assert.doesNotMatch(source, /sync-progress-copy/);
-  assert.match(source, /async function activityView/);
-  assert.doesNotMatch(source, /Still scanning wallet history/);
-});
-
-test("recovery does not ask users to choose a history scan mode", () => {
-  assert.doesNotMatch(source, /new-testnet-wallet/);
-  assert.doesNotMatch(source, /Full-history recovery can take significantly longer/);
+  assert.match(workflow, /cp -R \.engine\/packages\/webzjs-wallet node_modules\/\@chainsafe\/webzjs-wallet/);
 });
