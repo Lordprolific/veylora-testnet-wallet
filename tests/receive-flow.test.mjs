@@ -13,12 +13,12 @@ test("receive view requires a derived address, not a completed chain sync", () =
   assert.doesNotMatch(receiveView[1], /syncVerified/);
 });
 
-test("receive navigation follows address readiness, while send remains scan-gated", () => {
+test("receive and send navigation are available after address initialization without scan gating", () => {
   const receiveNav = source.split("\n").find((line) => line.includes('data-action="receive"') && line.includes('<button class="nav'));
   assert.ok(receiveNav);
   assert.match(receiveNav, /engineState/);
   assert.doesNotMatch(receiveNav, /syncVerified/);
-  assert.match(source, /function sendView\(\) \{\s*if \(!syncVerified \|\| !engineState/);
+  assert.match(source, /function sendView\(\) \{\s*if \(!engineState \|\| !getUnlockedRecoveryPhrase\(\)\)/);
 });
 
 test("sync completion and failure preserve receive access when an address exists", () => {
