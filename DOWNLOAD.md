@@ -6,9 +6,9 @@
 
 ## Download
 
-**[Download Veylora Wallet v0.3.1](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39243136147/artifacts/12182138227)**
+**[Download the confirmed Veylora Wallet build](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39240814803/artifacts/12181855185)**
 
-This is the latest available CI-built extension artifact currently identified for Veylora Wallet. Open the link above, download `veylora-chrome-extension-testnet`, and extract the ZIP before loading the extension in Chrome.
+This is the build identified and confirmed by the project owner as the correct working artifact. Download `veylora-chrome-extension-testnet`, then extract the ZIP before loading the extension in Chrome.
 
 ## Install
 
@@ -16,14 +16,15 @@ This is the latest available CI-built extension artifact currently identified fo
 2. Open `chrome://extensions` in Chrome.
 3. Enable **Developer mode**.
 4. Choose **Load unpacked** and select the extracted extension folder containing `manifest.json`.
-5. Return to [Veylora Market](https://veylora-market.vercel.app/) and try connecting again.
+5. Return to [Veylora Market](https://veylora-market.vercel.app/) and connect.
 
 ## Important
 
 - This wallet is for **Zcash testnet** experimentation, not mainnet funds.
 - Never share your recovery phrase or private keys.
-- GitHub Actions artifacts expire automatically. This download currently points to the latest identified workflow artifact and may stop working when GitHub deletes it. A permanent, expiry-free download requires publishing the ZIP as a GitHub Release asset.
-- Wallet connection and message-signing support depend on the installed extension build and the site's supported wallet integration. Do not assume successful authentication until the site confirms signature verification.
+- **This is still a GitHub Actions artifact and expires automatically.** It is not yet a permanent release asset. A permanent download URL must not be advertised until the exact ZIP is uploaded to a GitHub Release and verified.
+- Wallet connection and signature verification should be confirmed in the live Market before relying on the integration.
 
-**Build provenance:** [GitHub Actions run #39243136147](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39243136147)  
-**Artifact ID:** `12182138227`
+**Build provenance:** [GitHub Actions run #39240814803](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39240814803)  
+**Artifact ID:** `12181855185`  
+**Build commit:** `6b429b197bd5d86b90ccfe76882c7a9a60a53f03`
