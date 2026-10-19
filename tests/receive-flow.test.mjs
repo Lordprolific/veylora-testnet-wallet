@@ -44,15 +44,6 @@ test("WebZjs engine is supplied by the pinned build workflow, not the npm regist
 });
 
 
-test("wallet dashboard exposes scan progress and an activity view", () => {
-  assert.match(source, /wallet-dashboard/);
-  assert.match(source, /sync-progress-copy/);
-  assert.match(source, /async function activityView/);
-  assert.match(source, /Still scanning wallet history/);
-});
+test("wallet dashboard opens without history scan UI and includes activity view", () => {\n  assert.match(source, /wallet-dashboard/);\n  assert.doesNotMatch(source, /sync-progress-copy/);\n  assert.match(source, /async function activityView/);\n  assert.doesNotMatch(source, /Still scanning wallet history/);\n});
 
-test("recovery offers an explicit current-tip option without silently skipping history", () => {
-  assert.match(source, /new-testnet-wallet/);
-  assert.match(source, /mode === "restore" && !fastStart \? 0 : null/);
-  assert.match(source, /Full-history recovery can take significantly longer/);
-});
+test("recovery does not ask users to choose a history scan mode", () => {\n  assert.doesNotMatch(source, /new-testnet-wallet/);\n  assert.doesNotMatch(source, /Full-history recovery can take significantly longer/);\n});
