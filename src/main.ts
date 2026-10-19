@@ -5,6 +5,7 @@ import { createTestnetAccount, restoreTestnetAccount, syncTestnetWallet, getTest
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
 let engineBusy = false;
+let syncInProgress = false;
 let lifecycleGeneration = 0;
 let syncVerified = false;
 let pendingTransferDetails: any = null;
@@ -186,12 +187,12 @@ async function vaultView(password?: string) {
   screen = "vault";
   shell(`
     <section class="wallet-dashboard">
-      <div class="dashboard-heading"><div><div class="eyebrow">YOUR WALLET</div><h2>Overview</h2><p>Self-custody, without the clutter.</p></div><div class="account-chip"><span class="account-avatar">V</span><span><strong>Veylora wallet</strong><small>Local vault · Testnet</small></span><span class="live-dot"></span></div></div>
+      <div class="dashboard-heading"><div><div class="eyebrow">YOUR WALLET</div><h2>Overview</h2><p>Self-custody, without the clutter.</p></div><div class="account-chip"><img class="account-avatar" src="./assets/veylora-mark.svg" alt="" /><span><strong>Veylora wallet</strong><small>Local vault · Testnet</small></span><span class="live-dot"></span></div></div>
       <section class="balance-hero">
         <div class="balance-hero-top"><span>Total testnet balance</span><span class="network-pill"><i></i> ZCASH TESTNET</span></div>
-        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Sync your wallet to discover your balance.</p></div><div id="balance-content" hidden></div>
-        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" ${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>${syncVerified ? "Transfer testnet ZEC" : "Available after full scan"}</small></span></button></div>
-        <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><button data-action="sync" id="sync-button" class="text-action">Sync wallet <span>↻</span></button></div>
+        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Balance unavailable until the first scan returns. You can keep using your receive address while scanning runs.</p></div><div id="balance-content" hidden></div>
+        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" ${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>${syncVerified ? "Transfer testnet ZEC" : "Available after verified scan"}</small></span></button></div>
+        <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><button data-action="sync" id="sync-button" class="text-action">Update balance <span>↻</span></button></div>
       </section>
       <div class="dashboard-grid">
         <section class="dashboard-card network-card">
@@ -459,6 +460,11 @@ async function activityView() {
       <div class="dashboard-heading"><div><div class="eyebrow">WALLET HISTORY</div><h2>Activity</h2><p>Transactions returned by the Zcash testnet wallet engine.</p></div><span class="network-pill"><i></i> TESTNET</span></div>
       <section class="dashboard-card activity-full"><div class="section-heading"><div><span class="section-kicker">TRANSACTIONS</span><h3>Recent activity</h3></div><button class="text-action" data-action="vault">Sync from overview ↗</button></div><div id="activity-list"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Loading activity…</strong><p>Reading local wallet history.</p></div></div></section>
     </section>`);
+  if (syncInProgress) {
+    const target = root!.querySelector<HTMLElement>("#activity-list");
+    if (target) target.innerHTML = '<div class="empty-activity"><span class="empty-activity-icon">↻</span><strong>History scan is still running</strong><p>You can keep using the receive address. Return to Overview after the scan finishes to review its result.</p></div>';
+    return;
+  }
   try {
     const history = await getTestnetHistory();
     const target = root!.querySelector<HTMLElement>("#activity-list");
@@ -479,7 +485,7 @@ async function runSync() {
   const progress = root!.querySelector<HTMLElement>("#sync-progress");
   const progressCopy = root!.querySelector<HTMLElement>("#sync-progress-copy");
   if (!status || !button || engineBusy) return;
-  engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Preparing testnet scan…";
+  engineBusy = true; syncInProgress = true; syncVerified = false; button.disabled = true; status.textContent = "Preparing testnet scan…";
   if (progress) progress.hidden = false;
   if (progressCopy) progressCopy.textContent = "Connecting to the Zcash testnet service…";
   let syncTimer: number | undefined;
@@ -544,6 +550,7 @@ async function runSync() {
     if (syncTimer !== undefined) window.clearInterval(syncTimer);
     if (progress) progress.hidden = true;
     engineBusy = false;
+    syncInProgress = false;
     button.disabled = false;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
     if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); }
@@ -565,8 +572,8 @@ root.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action]");
   if (!button) return;
   const action = button.dataset.action;
-  if (engineBusy && action && ["home", "vault", "receive", "send", "cancel-transfer", "create", "restore", "unlock", "reveal"].includes(action)) {
-    feedback("Wait for the active wallet operation to finish before navigating away.", true);
+  if (engineBusy && action && ["home", "vault", "receive", "activity", "send", "cancel-transfer", "create", "restore", "unlock", "reveal"].includes(action) && (!syncInProgress || !["home", "vault", "receive", "activity", "reveal"].includes(action))) {
+    feedback(syncInProgress ? "The scan is continuing. Overview and Receive remain available; sending stays disabled until the wallet scan is verified." : "Wait for the active wallet operation to finish before navigating away.", true);
     return;
   }
   if (action === "home") { screen = "home"; phraseVisible = false; homeView(); }
