@@ -29,9 +29,10 @@ import {
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("Wallet root element is missing");
 
-type Screen = "home" | "create-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive" | "activity" | "send" | "send-review" | "send-result";
+type Screen = "home" | "create-phrase" | "confirm-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive" | "activity" | "send" | "send-review" | "send-result";
 let screen: Screen = "home";
 let pendingPhrase = "";
+let phraseChallengeIndexes: number[] = [];
 let phraseVisible = false;
 let busy = false;
 
@@ -109,6 +110,41 @@ function phraseView() {
   const checkbox = root!.querySelector<HTMLInputElement>("#phrase-confirm");
   const next = root!.querySelector<HTMLButtonElement>("#phrase-next");
   checkbox?.addEventListener("change", () => { if (next) next.disabled = !checkbox.checked; });
+}
+
+function confirmPhraseView() {
+  const words = pendingPhrase.split(" ");
+  if (words.length !== 24) { screen = "create-phrase"; return phraseView(); }
+  if (phraseChallengeIndexes.length !== 3) {
+    const selected = new Set<number>();
+    while (selected.size < 3) {
+      const value = new Uint32Array(1);
+      crypto.getRandomValues(value);
+      selected.add(value[0] % words.length);
+    }
+    phraseChallengeIndexes = Array.from(selected).sort((a, b) => a - b);
+  }
+  screen = "confirm-phrase";
+  shell(`
+    <section class="flow-card narrow">
+      <button class="back-link" data-action="phrase-confirm-back">← Back to recovery phrase</button>
+      <div class="eyebrow">BACKUP CHECK · STEP 2 OF 3</div>
+      <h2>Confirm your recovery phrase</h2>
+      <p class="flow-copy">Enter the three words requested below. This verifies that you have a usable backup before the wallet is encrypted.</p>
+      <form id="phrase-challenge-form">
+        ${phraseChallengeIndexes.map((index) => `<label class="field-label" for="phrase-word-${index}">Word ${index + 1}</label><input id="phrase-word-${index}" name="word-${index}" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" required />`).join("")}
+        <button class="primary form-submit" type="submit">Confirm backup <span>↗</span></button>
+      </form>
+    </section>`);
+  root!.querySelector<HTMLFormElement>("#phrase-challenge-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const valid = phraseChallengeIndexes.every((index) =>
+      (root!.querySelector<HTMLInputElement>(`#phrase-word-${index}`)?.value ?? "").trim().toLowerCase() === words[index].toLowerCase()
+    );
+    if (!valid) return feedback("One or more words did not match. Check your written backup and try again.", true);
+    screen = "create-password";
+    passwordView("create");
+  });
 }
 
 function passwordView(mode: "create" | "restore") {
@@ -581,7 +617,8 @@ root.addEventListener("click", (event) => {
     if (vaultExists()) return feedback("A vault already exists. Unlock it or restore only after safely removing the existing vault.", true);
     try { pendingPhrase = createRecoveryPhrase(); screen = "create-phrase"; phraseView(); }
     catch (error) { feedback(error instanceof Error ? error.message : "Secure wallet creation is unavailable.", true); }
-  } else if (action === "phrase-next") { screen = "create-password"; passwordView("create"); }
+  } else if (action === "phrase-next") { phraseChallengeIndexes = []; screen = "confirm-phrase"; confirmPhraseView(); }
+  else if (action === "phrase-confirm-back") { screen = "create-phrase"; phraseView(); }
   else if (action === "phrase-back") { screen = "create-phrase"; phraseView(); }
   else if (action === "restore") { screen = "restore"; passwordView("restore"); }
   else if (action === "unlock") { screen = "unlock"; unlockView(); }
