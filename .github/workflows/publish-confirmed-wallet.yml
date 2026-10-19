@@ -1,0 +1,44 @@
+name: Publish confirmed wallet artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the owner-confirmed Actions artifact archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/12181855185/zip" \
+            --output veylora-chrome-extension-testnet.zip
+          test -s veylora-chrome-extension-testnet.zip
+          sha256sum veylora-chrome-extension-testnet.zip | tee wallet-zip.sha256
+
+      - name: Publish permanent GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: wallet-confirmed-2026-10-19
+          name: Veylora Wallet — confirmed testnet build
+          body: |
+            Publishes the exact GitHub Actions artifact archive identified by the project owner as the confirmed working Veylora testnet wallet build.
+
+            Source workflow: https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39240814803
+            Source artifact ID: 12181855185
+            Source build commit: 6b429b197bd5d86b90ccfe76882c7a9a60a53f03
+
+            This is an experimental Zcash testnet wallet. Do not use mainnet funds.
+          files: |
+            veylora-chrome-extension-testnet.zip
+            wallet-zip.sha256
+          fail_on_unmatched_files: true
+          make_latest: true
