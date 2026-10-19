@@ -5,7 +5,6 @@ import { createTestnetAccount, restoreTestnetAccount, getTestnetHistory, prepare
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
 let engineBusy = false;
-let lastSyncSnapshot: { chainHeight: string; scannedHeight: string; shieldedBalance: number; transparentBalance: number; pendingBalance: number; history: { totalCount: number; transactions: Array<{ txid: string; type: number; value: string; confirmations: number; status: number }> } } | null = null;
 let lifecycleGeneration = 0;
 let syncVerified = false;
 let pendingTransferDetails: any = null;
@@ -47,7 +46,7 @@ function shell(content: string) {
         <div class="brand"><img src="./assets/veylora-mark.svg" alt="" /><span>VEY LORA</span></div>
         <div class="rail-label">WALLET</div>
         <button class="nav ${screen === "home" || screen === "vault" ? "active" : ""}" data-action="${getUnlockedRecoveryPhrase() ? "vault" : "home"}"><span>▦</span> Overview</button>
-        <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Complete a wallet scan before sending"}"><span>↗</span> Send</button>
+        <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Sending disabled while full-history scans are disabled"}"><span>↗</span> Send</button>
         <button class="nav ${screen === "receive" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="receive" ${engineState ? "" : "disabled"} title="${engineState ? "Show your testnet receive address" : "Create or unlock the wallet to derive an address"}"><span>＋</span> Receive</button>
         <button class="nav ${screen === "activity" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="activity" ${engineState ? "" : "disabled"} title="${engineState ? "View wallet activity" : "Unlock your wallet to view activity"}"><span>≋</span> Activity</button>
         <div class="rail-bottom"><div class="secure-dot"></div><span>Encrypted local vault</span></div>
@@ -77,7 +76,7 @@ function homeView() {
         <div class="status-row"><span class="status-indicator ${exists ? "status-ready" : ""}"></span><span>Local encrypted vault</span><strong>${exists ? (unlocked ? "UNLOCKED" : "LOCKED") : "NOT SET UP"}</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Zcash testnet engine</span><strong>INTEGRATION IN PROGRESS</strong></div>
       </div>
-      <div class="notice info-notice"><span class="notice-icon">i</span><div><strong>Testnet workspace</strong><p>Testnet coins have no monetary value. Once your address is derived and saved, you can open Receive. Sync updates your balance and activity; sending remains available only when the wallet has scanned to the reported chain tip.</p></div></div>
+      <div class="notice info-notice"><span class="notice-icon">i</span><div><strong>Testnet workspace</strong><p>Testnet coins have no monetary value. Your receive address is available as soon as it is derived. Full-history scans are disabled; balance and activity remain unavailable, and sending is disabled until a safe bounded transaction workflow exists.</p></div></div>
       <div class="actions">
         ${exists
           ? (unlocked
@@ -227,7 +226,7 @@ async function vaultView(password?: string) {
       <section class="balance-hero">
         <div class="balance-hero-top"><span>Total testnet balance</span><span class="network-pill"><i></i> ZCASH TESTNET</span></div>
         <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Balance unavailable. Full-history scanning is disabled.</p></div><div id="balance-content" hidden></div>
-        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" ${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>${syncVerified ? "Transfer testnet ZEC" : "Available after verified scan"}</small></span></button></div>
+        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" ${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>${syncVerified ? "Transfer testnet ZEC" : "Disabled while full scans are off"}</small></span></button></div>
         <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><span class="small-note">Full-history scan disabled</span></div>
       </section>
       <div class="dashboard-grid">
@@ -254,7 +253,6 @@ async function vaultView(password?: string) {
       <div class="dashboard-footer-actions"><span><span class="secure-dot"></span> Keys stay on this device</span><button class="text-action" data-action="lock">Lock wallet</button></div>
     </section>`);
   void initializeEngineForPhrase(phrase, password);
-  if (lastSyncSnapshot) renderLastSyncSnapshot();
 }
 async function initializeEngineForPhrase(phrase: string, password?: string) {
   const generation = lifecycleGeneration;
@@ -320,35 +318,6 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
 }
 
 
-
-function renderLastSyncSnapshot() {
-  const snapshot = lastSyncSnapshot;
-  if (!snapshot) return;
-  const fullyScanned = Number(snapshot.scannedHeight) >= Number(snapshot.chainHeight);
-  syncVerified = fullyScanned;
-  const zec = (value: number) => (value / 100_000_000).toLocaleString("en-US", { minimumFractionDigits: 8, maximumFractionDigits: 8 });
-  const dashboardBalance = root!.querySelector<HTMLElement>("#dashboard-balance");
-  if (dashboardBalance) dashboardBalance.innerHTML = `<div class="balance-total">${zec(snapshot.shieldedBalance + snapshot.transparentBalance + snapshot.pendingBalance)} <small>ZEC</small></div><p>${fullyScanned ? "Scan reached the reported chain tip." : "Partial scan. Balance may not include all incoming activity."}</p>`;
-  const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
-  if (walletChip) walletChip.textContent = fullyScanned ? "SYNCED" : "PARTIAL SCAN";
-  const syncState = root!.querySelector<HTMLElement>("#sync-state");
-  if (syncState) syncState.textContent = fullyScanned ? "At chain tip" : "Partial";
-  const syncDescription = root!.querySelector<HTMLElement>("#sync-description");
-  if (syncDescription) syncDescription.textContent = `Scanned ${snapshot.scannedHeight} of tip ${snapshot.chainHeight}`;
-  const status = root!.querySelector<HTMLElement>("#engine-status");
-  if (status) status.textContent = fullyScanned ? "Wallet synced to reported chain tip" : "Scan returned · more history may remain";
-  const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
-  if (sendNav) { sendNav.disabled = !fullyScanned; sendNav.classList.toggle("disabled-nav", !fullyScanned); sendNav.title = fullyScanned ? "Review a testnet transaction" : "Sync the testnet wallet before sending"; }
-  const dashboardSend = root!.querySelector<HTMLButtonElement>(".dashboard-actions [data-action='send']");
-  if (dashboardSend) { dashboardSend.disabled = !fullyScanned; const caption = dashboardSend.querySelector("small"); if (caption) caption.textContent = fullyScanned ? "Transfer testnet ZEC" : "Available after verified scan"; }
-  const historyContent = root!.querySelector<HTMLElement>("#history-content");
-  if (historyContent) {
-    const zecValue = (value: string) => (Number(value) / 100_000_000).toFixed(8);
-    const typeLabel = (type: number) => type === 0 ? "Received" : type === 1 ? "Sent" : type === 2 ? "Shielded" : "Transaction";
-    const statusLabel = (value: number) => value === 0 ? "Confirmed" : value === 1 ? "Pending" : value === 2 ? "Expired" : "Unknown";
-    historyContent.innerHTML = `<div class="history-panel"><div class="balance-title">Recent activity <span>${snapshot.history.totalCount} TOTAL</span></div>${snapshot.history.transactions.length ? snapshot.history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zecValue(tx.value)}<small>ZEC</small></div></div>`).join("") : '<p class="small-note">No transactions returned for this account yet. A partial scan may not include all activity.</p>'}</div>`;
-  }
-}
 
 function formatZatoshis(value: unknown): string {
   const amount = BigInt(String(value ?? "0"));
