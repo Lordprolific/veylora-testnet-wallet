@@ -28,7 +28,7 @@ import {
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("Wallet root element is missing");
 
-type Screen = "home" | "create-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive" | "send" | "send-review" | "send-result";
+type Screen = "home" | "create-phrase" | "create-password" | "restore" | "unlock" | "vault" | "receive" | "activity" | "send" | "send-review" | "send-result";
 let screen: Screen = "home";
 let pendingPhrase = "";
 let phraseVisible = false;
@@ -44,10 +44,10 @@ function shell(content: string) {
       <aside class="rail">
         <div class="brand"><img src="./assets/veylora-mark.svg" alt="" /><span>VEY LORA</span></div>
         <div class="rail-label">WALLET</div>
-        <button class="nav ${screen === "home" ? "active" : ""}" data-action="home"><span>◈</span> Overview</button>
-        <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Sync the testnet wallet before sending"}><span>↗</span> Send</button>
-        <button class="nav ${screen === "receive" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="receive" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Show verified testnet receive address" : "Sync the testnet wallet before receiving funds"}><span>＋</span> Receive</button>
-        <button class="nav disabled-nav" disabled title="Available after wallet engine integration"><span>↻</span> Activity</button>
+        <button class="nav ${screen === "home" || screen === "vault" ? "active" : ""}" data-action="${getUnlockedRecoveryPhrase() ? "vault" : "home"}"><span>▦</span> Overview</button>
+        <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Complete a wallet scan before sending"}"><span>↗</span> Send</button>
+        <button class="nav ${screen === "receive" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="receive" ${engineState ? "" : "disabled"} title="${engineState ? "Show your testnet receive address" : "Create or unlock the wallet to derive an address"}"><span>＋</span> Receive</button>
+        <button class="nav ${screen === "activity" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="activity" ${engineState ? "" : "disabled"} title="${engineState ? "View wallet activity" : "Unlock your wallet to view activity"}"><span>≋</span> Activity</button>
         <div class="rail-bottom"><div class="secure-dot"></div><span>Encrypted local vault</span></div>
       </aside>
       <main class="main">
@@ -75,7 +75,7 @@ function homeView() {
         <div class="status-row"><span class="status-indicator ${exists ? "status-ready" : ""}"></span><span>Local encrypted vault</span><strong>${exists ? (unlocked ? "UNLOCKED" : "LOCKED") : "NOT SET UP"}</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Zcash testnet engine</span><strong>INTEGRATION IN PROGRESS</strong></div>
       </div>
-      <div class="notice"><span class="notice-icon">!</span><div><strong>Do not deposit testnet funds yet</strong><p>The local vault and initial WebZjs testnet adapter are in active verification. Do not deposit funds until Chrome extension initialization, sync, database recovery, receiving, and sending have passed end-to-end tests. Send remains disabled.</p></div></div>
+      <div class="notice info-notice"><span class="notice-icon">i</span><div><strong>Testnet workspace</strong><p>Testnet coins have no monetary value. Once your address is derived and saved, you can open Receive. Sync updates your balance and activity; sending remains available only when the wallet has scanned to the reported chain tip.</p></div></div>
       <div class="actions">
         ${exists
           ? (unlocked
@@ -118,6 +118,7 @@ function passwordView(mode: "create" | "restore") {
       <h2>${mode === "create" ? "Protect your wallet" : "Restore your wallet"}</h2>
       <p class="flow-copy">${mode === "create" ? "Create a strong password to encrypt your recovery phrase on this device. Use at least 8 characters." : "Enter your 24-word recovery phrase and choose a new local encryption password."}</p>
       ${mode === "restore" ? '<label class="field-label" for="recovery">24-word recovery phrase</label><textarea id="recovery" rows="4" autocomplete="off" spellcheck="false" placeholder="Enter your 24 words in order"></textarea>' : ""}
+      ${mode === "restore" ? '<div class="scan-choice"><label class="check-row"><input type="checkbox" id="new-testnet-wallet" /> This is a brand-new testnet wallet. Start scanning from the current chain tip instead of checking earlier history.</label><p>Leave this unchecked if you may have received testnet funds before today. Full-history recovery can take significantly longer.</p></div>' : ""}
       <form id="password-form">
         ${mode === "restore" && vaultExists() ? '<label class="check-row destructive-check"><input type="checkbox" id="replace-existing" required /> I understand this will replace the existing encrypted vault on this device.</label>' : ""}
         <label class="field-label" for="password">${mode === "restore" ? "New wallet password" : "Wallet password"}</label>
@@ -143,7 +144,8 @@ function passwordView(mode: "create" | "restore") {
     try {
       if (mode === "create") await createEncryptedVault(phrase, password);
       else await restoreEncryptedVault(phrase, password, !vaultExists() || Boolean(root!.querySelector<HTMLInputElement>("#replace-existing")?.checked));
-      localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: mode === "restore" ? 0 : null }));
+      const fastStart = mode === "restore" && Boolean(root!.querySelector<HTMLInputElement>("#new-testnet-wallet")?.checked);
+      localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: mode === "restore" && !fastStart ? 0 : null, scanMode: fastStart ? "current-tip" : mode === "restore" ? "full-history" : "new-wallet" }));
       pendingPhrase = "";
       screen = "vault";
       await vaultView(password);
@@ -181,34 +183,64 @@ function unlockView() {
 async function vaultView(password?: string) {
   const phrase = getUnlockedRecoveryPhrase();
   if (!phrase) { screen = "home"; return homeView(); }
+  screen = "vault";
   shell(`
-    <section class="flow-card narrow">
-      <div class="eyebrow">LOCAL VAULT</div><h2>Vault unlocked</h2>
-      <p class="flow-copy">Your recovery phrase is decrypted for this browser session. Veylora will attempt to derive a testnet address locally; balances and payments remain gated on verified synchronization and transaction testing.</p>
-      <div class="status-panel">
-        <div class="status-row"><span class="status-indicator status-ready"></span><span>Encrypted recovery phrase</span><strong>UNLOCKED</strong></div>
-        <div class="status-row"><span class="status-indicator"></span><span>Zcash account/address</span><strong>INITIALIZING</strong></div>
-        <div class="status-row"><span class="status-indicator"></span><span>Chain sync and payments</span><strong>NOT YET VERIFIED</strong></div>
+    <section class="wallet-dashboard">
+      <div class="dashboard-heading"><div><div class="eyebrow">YOUR WALLET</div><h2>Overview</h2><p>Self-custody, without the clutter.</p></div><div class="account-chip"><span class="account-avatar">V</span><span><strong>Veylora wallet</strong><small>Local vault · Testnet</small></span><span class="live-dot"></span></div></div>
+      <section class="balance-hero">
+        <div class="balance-hero-top"><span>Total testnet balance</span><span class="network-pill"><i></i> ZCASH TESTNET</span></div>
+        <div id="dashboard-balance"><div class="balance-skeleton">— <small>ZEC</small></div><p>Sync your wallet to discover your balance.</p></div><div id="balance-content" hidden></div>
+        <div class="dashboard-actions"><button class="primary action-large" data-action="receive"><span class="action-symbol">↓</span><span><strong>Receive</strong><small>Get a testnet address</small></span></button><button class="secondary action-large" data-action="send" ${syncVerified ? "" : "disabled"}><span class="action-symbol">↗</span><span><strong>Send</strong><small>${syncVerified ? "Transfer testnet ZEC" : "Available after full scan"}</small></span></button></div>
+        <div class="balance-foot"><span class="secure-dot"></span><span>Encrypted locally</span><span class="foot-separator"></span><span>Testnet only</span><button data-action="sync" id="sync-button" class="text-action">Sync wallet <span>↻</span></button></div>
+      </section>
+      <div class="dashboard-grid">
+        <section class="dashboard-card network-card">
+          <div class="section-heading"><div><span class="section-kicker">NETWORK</span><h3>Wallet status</h3></div><span class="status-chip" id="wallet-state-chip">INITIALIZING</span></div>
+          <div class="wallet-state-row"><span class="state-icon">◈</span><span><strong>Encrypted vault</strong><small>Your recovery phrase is unlocked locally</small></span><b class="state-good">Unlocked</b></div>
+          <div class="wallet-state-row"><span class="state-icon">⌁</span><span><strong>Account address</strong><small>Derived on this device</small></span><b id="address-state">Loading</b></div>
+          <div class="wallet-state-row"><span class="state-icon">↻</span><span><strong>Chain sync</strong><small id="sync-description">Balance and activity need a scan</small></span><b id="sync-state">Needed</b></div>
+          <div id="engine-status" class="sync-status-line"><span class="status-indicator"></span> Initializing testnet engine…</div>
+          <div id="sync-progress" class="sync-progress" hidden><div class="sync-progress-track"><span></span></div><p id="sync-progress-copy">Preparing scan…</p></div>
+          <div id="engine-error" class="engine-error" hidden></div>
+        </section>
+        <section class="dashboard-card quick-card">
+          <div class="section-heading"><div><span class="section-kicker">QUICK ACCESS</span><h3>Manage wallet</h3></div></div>
+          <button class="manage-row" data-action="receive"><span class="manage-icon">↓</span><span><strong>Receive ZEC</strong><small>QR code and address details</small></span><span class="manage-chevron">↗</span></button>
+          <button class="manage-row" data-action="activity" ${engineState ? "" : "disabled"}><span class="manage-icon">≋</span><span><strong>Recent activity</strong><small>Incoming and outgoing transactions</small></span><span class="manage-chevron">↗</span></button>
+          <button class="manage-row" data-action="reveal"><span class="manage-icon">⌑</span><span><strong>Recovery phrase</strong><small>View your private backup</small></span><span class="manage-chevron">↗</span></button>
+          <button class="manage-row" data-action="lock"><span class="manage-icon">⏻</span><span><strong>Lock wallet</strong><small>Close this unlocked session</small></span><span class="manage-chevron">↗</span></button>
+        </section>
       </div>
-      <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Addresses are derived locally by the pinned WebZjs engine. Do not send funds until synchronization and transaction flows are verified.</p><div id="address-content"></div><div id="balance-content"></div><div id="history-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
-      <button class="secondary full-button" data-action="reveal">${phraseVisible ? "Hide recovery phrase" : "Reveal recovery phrase"}</button>
-      ${phraseVisible ? `<div class="phrase-reveal"><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></div>` : ""}
-      <div class="actions"><button class="secondary" data-action="lock">Lock wallet</button><button class="secondary" data-action="home">Overview</button></div>
+      <section class="dashboard-card address-summary"><div class="section-heading"><div><span class="section-kicker">RECEIVE</span><h3>Your testnet address</h3></div><button class="text-action" data-action="receive">View details ↗</button></div><div id="address-content"><div class="address-placeholder">Deriving your address locally…</div></div></section>
+      <section class="dashboard-card activity-summary"><div class="section-heading"><div><span class="section-kicker">ACTIVITY</span><h3>Recent transactions</h3></div><button class="text-action" data-action="activity">View all ↗</button></div><div id="history-content"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Activity will appear here</strong><p>Sync your wallet to discover incoming and outgoing transactions.</p></div></div></section>
+      ${phraseVisible ? `<section class="dashboard-card phrase-reveal"><div class="section-heading"><div><span class="section-kicker">PRIVATE BACKUP</span><h3>Recovery phrase</h3></div><button class="text-action" data-action="reveal">Hide phrase</button></div><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></section>` : ""}
+      <div class="dashboard-footer-actions"><span><span class="secure-dot"></span> Keys stay on this device</span><button class="text-action" data-action="lock">Lock wallet</button></div>
     </section>`);
   void initializeEngineForPhrase(phrase, password);
 }
-
 async function initializeEngineForPhrase(phrase: string, password?: string) {
   const generation = lifecycleGeneration;
   const status = root!.querySelector<HTMLElement>("#engine-status");
   const panel = root!.querySelector<HTMLElement>("#engine-panel");
   const addressContent = root!.querySelector<HTMLElement>("#address-content");
   const syncButton = root!.querySelector<HTMLButtonElement>("#sync-button");
-  if (!status || !panel || !addressContent || !syncButton) return;
+  if (!status || !addressContent || !syncButton) return;
   if (engineState) {
-    status.textContent = "Address derived · sync not verified";
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
+    status.textContent = "Address ready · sync needed";
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = "ADDRESS READY";
+    const addressState = root!.querySelector<HTMLElement>("#address-state");
+    if (addressState) addressState.textContent = "Ready";
+    const accountLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
+    if (accountLabels[1]) accountLabels[1].textContent = "DERIVED LOCALLY";
+    if (accountLabels[2]) accountLabels[2].textContent = "SYNC NEEDED";
+    const indicator = root!.querySelector(".sync-status-line .status-indicator");
+    indicator?.classList.add("status-ready");
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
+    const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+    if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
+    root!.querySelectorAll<HTMLButtonElement>('[data-action="activity"]').forEach((activityButton) => { activityButton.disabled = false; activityButton.classList.remove("disabled-nav"); });
     return;
   }
   status.textContent = "Initializing local WASM…";
@@ -226,18 +258,29 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     }
     if (generation !== lifecycleGeneration) { releaseTestnetWallet(); engineState = null; return; }
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
-    status.textContent = "Address derived · sync not verified";
+    status.textContent = "Address ready · sync needed";
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = "ADDRESS READY";
+    const addressState = root!.querySelector<HTMLElement>("#address-state");
+    if (addressState) addressState.textContent = "Ready";
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
-    if (statusLabels[2]) statusLabels[2].textContent = "NOT YET VERIFIED";
-    panel.querySelector(".engine-panel-head .status-indicator")?.classList.add("status-ready");
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
+    if (statusLabels[2]) statusLabels[2].textContent = "SYNC NEEDED";
+    root!.querySelector(".sync-status-line .status-indicator")?.classList.add("status-ready");
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
+    const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+    if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
+    root!.querySelectorAll<HTMLButtonElement>('[data-action="activity"]').forEach((activityButton) => { activityButton.disabled = false; activityButton.classList.remove("disabled-nav"); });
   } catch (error) {
     if (generation !== lifecycleGeneration) return;
     status.textContent = "Engine unavailable";
-    addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Keep your recovery phrase safe. Do not send funds until initialization and synchronization work in Chrome.</p>`;
-    feedback("The recovery phrase is encrypted, but the Zcash engine did not initialize. Do not deposit funds.", true);
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = "UNAVAILABLE";
+    const engineError = root!.querySelector<HTMLElement>("#engine-error");
+    if (engineError) { engineError.hidden = false; engineError.textContent = error instanceof Error ? error.message : "WebZjs could not initialize in this extension context."; }
+    addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Your encrypted vault remains saved. Receiving becomes available when address derivation succeeds; syncing is required to display a current balance.</p>`;
+    feedback("The vault is encrypted, but the testnet engine could not initialize. Review the engine error and retry.", true);
   }
 }
 
@@ -383,19 +426,19 @@ async function confirmSend() {
 }
 
 async function receiveView() {
-  if (!syncVerified || !engineState) { screen = "vault"; return void vaultView(); }
+  if (!engineState || !getUnlockedRecoveryPhrase()) { screen = "vault"; return void vaultView(); }
   screen = "receive";
   shell(`
     <section class="flow-card narrow receive-card">
       <button class="back-link" data-action="vault">← Back to wallet</button>
       <div class="eyebrow">ZCASH TESTNET · RECEIVE</div>
       <h2>Receive ZEC</h2>
-      <p class="flow-copy">Only share this address for Zcash testnet funds. Veylora has completed a scan to the current reported tip, but the first release remains under testing.</p>
+      <p class="flow-copy">Share this address to receive Zcash testnet coins. Incoming activity and balances appear after you sync the wallet. Testnet coins have no monetary value.</p>
       <div class="qr-frame"><div id="receive-qr" class="qr-placeholder">Generating QR…</div></div>
       <label class="field-label">Unified address</label>
       <div class="receive-address"><code>${escapeHtml(engineState.unifiedAddress)}</code></div>
       <button class="primary form-submit" data-action="copy-address">Copy unified address</button>
-      <div class="notice"><span class="notice-icon">!</span><div><strong>Testnet only</strong><p>Never send mainnet ZEC to this address. Testnet coins have no mainnet value.</p></div></div>
+      <div class="notice info-notice"><span class="notice-icon">i</span><div><strong>Testnet address</strong><p>Only use this address with Zcash testnet funds. Never send mainnet ZEC here.</p></div></div>
     </section>`);
   try {
     const dataUrl = await QRCode.toDataURL(engineState.unifiedAddress, { errorCorrectionLevel: "M", margin: 1, width: 260, color: { dark: "#f2f3f5", light: "#090a0c" } });
@@ -407,19 +450,53 @@ async function receiveView() {
   }
 }
 
+async function activityView() {
+  if (!engineState || !getUnlockedRecoveryPhrase()) { screen = "vault"; return void vaultView(); }
+  screen = "activity";
+  shell(`
+    <section class="activity-page">
+      <button class="back-link" data-action="vault">← Back to overview</button>
+      <div class="dashboard-heading"><div><div class="eyebrow">WALLET HISTORY</div><h2>Activity</h2><p>Transactions returned by the Zcash testnet wallet engine.</p></div><span class="network-pill"><i></i> TESTNET</span></div>
+      <section class="dashboard-card activity-full"><div class="section-heading"><div><span class="section-kicker">TRANSACTIONS</span><h3>Recent activity</h3></div><button class="text-action" data-action="vault">Sync from overview ↗</button></div><div id="activity-list"><div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>Loading activity…</strong><p>Reading local wallet history.</p></div></div></section>
+    </section>`);
+  try {
+    const history = await getTestnetHistory();
+    const target = root!.querySelector<HTMLElement>("#activity-list");
+    if (!target) return;
+    const zec = (value: string) => (Number(value) / 100_000_000).toFixed(8);
+    const typeLabel = (type: number) => type === 0 ? "Received" : type === 1 ? "Sent" : type === 2 ? "Shielded" : "Transaction";
+    const statusLabel = (value: number) => value === 0 ? "Confirmed" : value === 1 ? "Pending" : value === 2 ? "Expired" : "Unknown";
+    target.innerHTML = history.transactions.length ? history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zec(tx.value)}<small>ZEC</small></div></div>`).join("") : '<div class="empty-activity"><span class="empty-activity-icon">≋</span><strong>No transactions found</strong><p>No activity was returned for this account yet. A partial scan may not include all past activity.</p></div>';
+  } catch (error) {
+    const target = root!.querySelector<HTMLElement>("#activity-list");
+    if (target) target.innerHTML = `<p class="small-note">${escapeHtml(error instanceof Error ? error.message : "Could not read wallet history.")}</p>`;
+  }
+}
+
 async function runSync() {
   const status = root!.querySelector<HTMLElement>("#engine-status");
   const button = root!.querySelector<HTMLButtonElement>("#sync-button");
+  const progress = root!.querySelector<HTMLElement>("#sync-progress");
+  const progressCopy = root!.querySelector<HTMLElement>("#sync-progress-copy");
   if (!status || !button || engineBusy) return;
-  engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Syncing testnet…";
-  const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
-  if (receiveNav) { receiveNav.disabled = true; receiveNav.classList.add("disabled-nav"); }
+  engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Preparing testnet scan…";
+  if (progress) progress.hidden = false;
+  if (progressCopy) progressCopy.textContent = "Connecting to the Zcash testnet service…";
+  let syncTimer: number | undefined;
+  let syncStartedAt = 0;
   const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
   if (sendNav) { sendNav.disabled = true; sendNav.classList.add("disabled-nav"); }
   try {
     const password = window.prompt("Enter your wallet password to encrypt and save the updated testnet wallet database on this device.");
     if (!password) { status.textContent = "Sync cancelled"; return; }
     await verifyWalletPassword(password);
+    syncStartedAt = Date.now();
+    status.textContent = "Connecting to testnet…";
+    syncTimer = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - syncStartedAt) / 1000);
+      if (status.isConnected) status.textContent = elapsed < 10 ? "Connecting to testnet…" : elapsed < 30 ? "Scanning wallet history…" : "Still scanning wallet history…";
+      if (progressCopy) progressCopy.textContent = elapsed < 10 ? "Waiting for the testnet service to respond…" : elapsed < 30 ? "Scan running · " + elapsed + "s elapsed" : elapsed < 90 ? "This scan can take time, especially after restoring a recovery phrase · " + elapsed + "s elapsed" : "Long scan detected · " + elapsed + "s elapsed. Full-history recovery starts at the wallet birthday and can take significantly longer.";
+    }, 1000);
     const result = await syncTestnetWallet();
     await persistEncryptedWalletDatabase(result.database, engineState?.accountId ?? -1, password);
     const history = await getTestnetHistory();
@@ -430,11 +507,23 @@ async function runSync() {
       const fullyScanned = Number(result.scannedHeight) >= Number(result.chainHeight);
       syncVerified = fullyScanned;
       const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
-      if (receiveNav) { receiveNav.disabled = !fullyScanned; receiveNav.classList.toggle("disabled-nav", !fullyScanned); receiveNav.title = fullyScanned ? "Show verified testnet receive address" : "Sync the testnet wallet before receiving funds"; }
+      if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); receiveNav.title = engineState ? "Show your testnet receive address" : "Derive an address before receiving"; }
       const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
       if (sendNav) { sendNav.disabled = !fullyScanned; sendNav.classList.toggle("disabled-nav", !fullyScanned); sendNav.title = fullyScanned ? "Review a testnet transaction" : "Sync the testnet wallet before sending"; }
       balanceContent.innerHTML = `<div class="balance-panel"><div class="balance-title">Observed testnet balance <span>${fullyScanned ? "SCAN AT TIP" : "PARTIAL SCAN"}</span></div><div class="balance-total">${zec(result.shieldedBalance + result.transparentBalance + result.pendingBalance)} <small>ZEC</small></div><div class="balance-breakdown"><div><span>Shielded</span><strong>${zec(result.shieldedBalance)}</strong></div><div><span>Transparent</span><strong>${zec(result.transparentBalance)}</strong></div><div><span>Pending</span><strong>${zec(result.pendingBalance)}</strong></div></div><p class="small-note">${fullyScanned ? "The wallet reports its scan at the current chain tip. Verify with transaction history before relying on this balance." : "This is a partial scan and may not include all incoming activity. Keep syncing until the scanned height catches up."}</p></div>`;
     }
+    const dashboardBalance = root!.querySelector<HTMLElement>("#dashboard-balance");
+    const fullyScannedDashboard = Number(result.scannedHeight) >= Number(result.chainHeight);
+    const dashboardZec = (value: number) => (value / 100_000_000).toLocaleString("en-US", { minimumFractionDigits: 8, maximumFractionDigits: 8 });
+    if (dashboardBalance) dashboardBalance.innerHTML = "<div class=\"balance-total\">" + dashboardZec(result.shieldedBalance + result.transparentBalance + result.pendingBalance) + " <small>ZEC</small></div><p>" + (fullyScannedDashboard ? "Scan reached the reported chain tip." : "Partial scan. Balance may not include all incoming activity.") + "</p>";
+    const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
+    if (walletChip) walletChip.textContent = fullyScannedDashboard ? "SYNCED" : "PARTIAL SCAN";
+    const syncState = root!.querySelector<HTMLElement>("#sync-state");
+    if (syncState) syncState.textContent = fullyScannedDashboard ? "At chain tip" : "Partial";
+    const syncDescription = root!.querySelector<HTMLElement>("#sync-description");
+    if (syncDescription) syncDescription.textContent = "Scanned " + result.scannedHeight + " of tip " + result.chainHeight;
+    const progressBar = root!.querySelector<HTMLElement>(".sync-progress-track span");
+    if (progressBar) progressBar.style.width = fullyScannedDashboard ? "100%" : "70%";
     const historyContent = root!.querySelector<HTMLElement>("#history-content");
     if (historyContent) {
       const zec = (value: string) => (Number(value) / 100_000_000).toFixed(8);
@@ -442,11 +531,27 @@ async function runSync() {
       const statusLabel = (value: number) => value === 0 ? "Confirmed" : value === 1 ? "Pending" : value === 2 ? "Expired" : "Unknown";
       historyContent.innerHTML = `<div class="history-panel"><div class="balance-title">Recent activity <span>${history.totalCount} TOTAL</span></div>${history.transactions.length ? history.transactions.map((tx) => `<div class="history-row"><div class="history-main"><strong>${typeLabel(tx.type)}</strong><span>${statusLabel(tx.status)} · ${tx.confirmations} confirmations</span><code>${escapeHtml(tx.txid.slice(0, 14))}…${escapeHtml(tx.txid.slice(-8))}</code></div><div class="history-value">${zec(tx.value)}<small>ZEC</small></div></div>`).join("") : '<p class="small-note">No transactions returned for this account yet. A partial scan may not include all activity.</p>'}</div>`;
     }
+    if (progress) progress.hidden = true;
+    status.textContent = syncVerified ? "Wallet synced to reported chain tip" : "Scan completed · more history may remain";
     feedback("The latest testnet scan result and transaction history were loaded. Verify scan completeness before relying on this data.");
   } catch (error) {
     status.textContent = "Sync failed";
+    const engineError = root!.querySelector<HTMLElement>("#engine-error");
+    if (engineError) { engineError.hidden = false; engineError.textContent = error instanceof Error ? error.message : "Testnet synchronization failed."; }
+    if (progress) progress.hidden = true;
     feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
-  } finally { engineBusy = false; button.disabled = false; }
+  } finally {
+    if (syncTimer !== undefined) window.clearInterval(syncTimer);
+    if (progress) progress.hidden = true;
+    engineBusy = false;
+    button.disabled = false;
+    const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+    if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); }
+    const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
+    if (sendNav) { sendNav.disabled = !syncVerified; sendNav.classList.toggle("disabled-nav", !syncVerified); }
+    const dashboardSend = root!.querySelector<HTMLButtonElement>(".dashboard-actions [data-action='send']");
+    if (dashboardSend) dashboardSend.disabled = !syncVerified;
+  }
 }
 
 function feedback(message: string, error = false) {
@@ -475,6 +580,7 @@ root.addEventListener("click", (event) => {
   else if (action === "unlock") { screen = "unlock"; unlockView(); }
   else if (action === "vault") { screen = "vault"; void vaultView(); }
   else if (action === "receive") { void receiveView(); }
+  else if (action === "activity") { void activityView(); }
   else if (action === "send") { sendView(); }
   else if (action === "cancel-transfer") { cancelPendingTestnetTransfer(); pendingTransferDetails = null; screen = "send"; sendView(); }
   else if (action === "confirm-send") { void confirmSend(); }

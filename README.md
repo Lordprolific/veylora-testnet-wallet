@@ -6,7 +6,7 @@
 
 Veylora is being developed as an independent Zcash wallet. It is not intended to require Noir Wallet, and it is not a scanner or provider wrapper.
 
-> **Status: early engineering build, not ready for funds or public release.** The current branch establishes a standalone extension entry point and visual shell. Wallet creation, recovery, encrypted persistence, address derivation, synchronization, transaction proving, signing, and broadcasting are not yet implemented or verified. Disabled controls are intentional.
+> **Status: experimental Zcash testnet wallet; not audited and not for real funds.** The extension implements local vault creation and recovery, encrypted local persistence, WebZjs testnet address derivation, manual sync, balance/history rendering, receive QR, and a proposal-reviewed send flow. Implementation does not mean end-to-end verification: install and test the extension in real Chrome before relying on address correctness, incoming balance detection, synchronization, or payments. Receive becomes available after an address is derived; Send remains gated until the scan reaches the reported chain tip. Testnet coins have no intended monetary value.
 
 ## Live demo
 
@@ -40,7 +40,7 @@ Every payment must be reviewed and approved inside Noir Wallet. A returned trans
 6. Run `npm run dev`.
 7. Open the local site in a browser with the official Noir testnet extension installed and independently confirm its network.
 
-To load the separate extension UI scaffold, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the repository folder. That scaffold does not create a wallet, manage keys, connect to a network, or send transactions.
+To load the extension, first download and extract the `veylora-chrome-extension-testnet.zip` artifact from the successful **Standalone wallet build** workflow, then open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the extracted extension folder. Keep the wallet on testnet. The current release still requires real-browser checks for vault restoration, persistence after browser restart, address correctness, scan-to-tip, receiving/balance visibility, and a controlled testnet send with independent transaction confirmation.
 
 ## Security principles
 
