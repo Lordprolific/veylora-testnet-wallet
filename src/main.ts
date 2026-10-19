@@ -46,8 +46,8 @@ function shell(content: string) {
         <div class="rail-label">WALLET</div>
         <button class="nav ${screen === "home" ? "active" : ""}" data-action="home"><span>◈</span> Overview</button>
         <button class="nav ${screen === "send" || screen === "send-review" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="send" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Review a testnet transaction" : "Sync the testnet wallet before sending"}><span>↗</span> Send</button>
-        <button class="nav ${screen === "receive" ? "active" : ""} ${syncVerified ? "" : "disabled-nav"}" data-action="receive" ${syncVerified ? "" : "disabled"} title="${syncVerified ? "Show verified testnet receive address" : "Sync the testnet wallet before receiving funds"}><span>＋</span> Receive</button>
-        <button class="nav disabled-nav" disabled title="Available after wallet engine integration"><span>↻</span> Activity</button>
+        <button class="nav ${screen === "receive" ? "active" : ""} ${engineState ? "" : "disabled-nav"}" data-action="receive" ${engineState ? "" : "disabled"} title="${engineState ? "Show your testnet receive address" : "Create or unlock the wallet to derive an address"}><span>＋</span> Receive</button>
+        <button class="nav disabled-nav" disabled title="Activity will appear after the first successful sync"><span>↻</span> Activity</button>
         <div class="rail-bottom"><div class="secure-dot"></div><span>Encrypted local vault</span></div>
       </aside>
       <main class="main">
@@ -75,7 +75,7 @@ function homeView() {
         <div class="status-row"><span class="status-indicator ${exists ? "status-ready" : ""}"></span><span>Local encrypted vault</span><strong>${exists ? (unlocked ? "UNLOCKED" : "LOCKED") : "NOT SET UP"}</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Zcash testnet engine</span><strong>INTEGRATION IN PROGRESS</strong></div>
       </div>
-      <div class="notice"><span class="notice-icon">!</span><div><strong>Do not deposit testnet funds yet</strong><p>The local vault and initial WebZjs testnet adapter are in active verification. Do not deposit funds until Chrome extension initialization, sync, database recovery, receiving, and sending have passed end-to-end tests. Send remains disabled.</p></div></div>
+      <div class="notice info-notice"><span class="notice-icon">i</span><div><strong>Testnet workspace</strong><p>Testnet coins have no monetary value. Once your address is derived and saved, you can open Receive. Sync updates your balance and activity; sending remains available only when the wallet has scanned to the reported chain tip.</p></div></div>
       <div class="actions">
         ${exists
           ? (unlocked
@@ -184,13 +184,13 @@ async function vaultView(password?: string) {
   shell(`
     <section class="flow-card narrow">
       <div class="eyebrow">LOCAL VAULT</div><h2>Vault unlocked</h2>
-      <p class="flow-copy">Your recovery phrase is decrypted for this browser session. Veylora will attempt to derive a testnet address locally; balances and payments remain gated on verified synchronization and transaction testing.</p>
+      <p class="flow-copy">Your encrypted vault is open on this device. Once your address is derived and saved, you can receive Zcash testnet coins. Sync is used to discover incoming activity and update your balance; sending requires a completed scan.</p>
       <div class="status-panel">
         <div class="status-row"><span class="status-indicator status-ready"></span><span>Encrypted recovery phrase</span><strong>UNLOCKED</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Zcash account/address</span><strong>INITIALIZING</strong></div>
         <div class="status-row"><span class="status-indicator"></span><span>Chain sync and payments</span><strong>NOT YET VERIFIED</strong></div>
       </div>
-      <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Addresses are derived locally by the pinned WebZjs engine. Do not send funds until synchronization and transaction flows are verified.</p><div id="address-content"></div><div id="balance-content"></div><div id="history-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
+      <div id="engine-panel" class="engine-panel"><div class="engine-panel-head"><span class="status-indicator"></span><strong>TESTNET ENGINE</strong><span id="engine-status">Initializing WebZjs…</span></div><p>Address generation happens locally. Sync checks for incoming activity and refreshes balances; transaction actions are enabled only after the required scan completes.</p><div id="address-content"></div><div id="balance-content"></div><div id="history-content"></div><button class="secondary full-button" data-action="sync" id="sync-button" disabled>Sync testnet <span>↻</span></button></div>
       <button class="secondary full-button" data-action="reveal">${phraseVisible ? "Hide recovery phrase" : "Reveal recovery phrase"}</button>
       ${phraseVisible ? `<div class="phrase-reveal"><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></div>` : ""}
       <div class="actions"><button class="secondary" data-action="lock">Lock wallet</button><button class="secondary" data-action="home">Overview</button></div>
@@ -206,9 +206,16 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
   const syncButton = root!.querySelector<HTMLButtonElement>("#sync-button");
   if (!status || !panel || !addressContent || !syncButton) return;
   if (engineState) {
-    status.textContent = "Address derived · sync not verified";
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
+    status.textContent = "Address ready · sync needed";
+    const accountLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
+    if (accountLabels[1]) accountLabels[1].textContent = "DERIVED LOCALLY";
+    if (accountLabels[2]) accountLabels[2].textContent = "SYNC NEEDED";
+    const indicator = panel.querySelector(".engine-panel-head .status-indicator");
+    indicator?.classList.add("status-ready");
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
+    const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+    if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
     return;
   }
   status.textContent = "Initializing local WASM…";
@@ -226,18 +233,20 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     }
     if (generation !== lifecycleGeneration) { releaseTestnetWallet(); engineState = null; return; }
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
-    status.textContent = "Address derived · sync not verified";
+    status.textContent = "Address ready · sync needed";
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
-    if (statusLabels[2]) statusLabels[2].textContent = "NOT YET VERIFIED";
+    if (statusLabels[2]) statusLabels[2].textContent = "SYNC NEEDED";
     panel.querySelector(".engine-panel-head .status-indicator")?.classList.add("status-ready");
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Address derivation succeeded locally. No balance is displayed until chain sync is independently verified.</p>`;
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Sync to discover incoming activity and update the balance.</p>`;
     syncButton.disabled = false;
+    const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+    if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
   } catch (error) {
     if (generation !== lifecycleGeneration) return;
     status.textContent = "Engine unavailable";
-    addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Keep your recovery phrase safe. Do not send funds until initialization and synchronization work in Chrome.</p>`;
-    feedback("The recovery phrase is encrypted, but the Zcash engine did not initialize. Do not deposit funds.", true);
+    addressContent.innerHTML = `<p class="engine-error">${escapeHtml(error instanceof Error ? error.message : "WebZjs could not initialize in this extension context.")}</p><p class="small-note">Your encrypted vault remains saved. Receiving becomes available when address derivation succeeds; syncing is required to display a current balance.</p>`;
+    feedback("The vault is encrypted, but the testnet engine could not initialize. Review the engine error and retry.", true);
   }
 }
 
@@ -383,19 +392,19 @@ async function confirmSend() {
 }
 
 async function receiveView() {
-  if (!syncVerified || !engineState) { screen = "vault"; return void vaultView(); }
+  if (!engineState || !getUnlockedRecoveryPhrase()) { screen = "vault"; return void vaultView(); }
   screen = "receive";
   shell(`
     <section class="flow-card narrow receive-card">
       <button class="back-link" data-action="vault">← Back to wallet</button>
       <div class="eyebrow">ZCASH TESTNET · RECEIVE</div>
       <h2>Receive ZEC</h2>
-      <p class="flow-copy">Only share this address for Zcash testnet funds. Veylora has completed a scan to the current reported tip, but the first release remains under testing.</p>
+      <p class="flow-copy">Share this address to receive Zcash testnet coins. Incoming activity and balances appear after you sync the wallet. Testnet coins have no monetary value.</p>
       <div class="qr-frame"><div id="receive-qr" class="qr-placeholder">Generating QR…</div></div>
       <label class="field-label">Unified address</label>
       <div class="receive-address"><code>${escapeHtml(engineState.unifiedAddress)}</code></div>
       <button class="primary form-submit" data-action="copy-address">Copy unified address</button>
-      <div class="notice"><span class="notice-icon">!</span><div><strong>Testnet only</strong><p>Never send mainnet ZEC to this address. Testnet coins have no mainnet value.</p></div></div>
+      <div class="notice info-notice"><span class="notice-icon">i</span><div><strong>Testnet address</strong><p>Only use this address with Zcash testnet funds. Never send mainnet ZEC here.</p></div></div>
     </section>`);
   try {
     const dataUrl = await QRCode.toDataURL(engineState.unifiedAddress, { errorCorrectionLevel: "M", margin: 1, width: 260, color: { dark: "#f2f3f5", light: "#090a0c" } });
@@ -412,8 +421,6 @@ async function runSync() {
   const button = root!.querySelector<HTMLButtonElement>("#sync-button");
   if (!status || !button || engineBusy) return;
   engineBusy = true; syncVerified = false; button.disabled = true; status.textContent = "Syncing testnet…";
-  const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
-  if (receiveNav) { receiveNav.disabled = true; receiveNav.classList.add("disabled-nav"); }
   const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
   if (sendNav) { sendNav.disabled = true; sendNav.classList.add("disabled-nav"); }
   try {
@@ -430,7 +437,7 @@ async function runSync() {
       const fullyScanned = Number(result.scannedHeight) >= Number(result.chainHeight);
       syncVerified = fullyScanned;
       const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
-      if (receiveNav) { receiveNav.disabled = !fullyScanned; receiveNav.classList.toggle("disabled-nav", !fullyScanned); receiveNav.title = fullyScanned ? "Show verified testnet receive address" : "Sync the testnet wallet before receiving funds"; }
+      if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); receiveNav.title = engineState ? "Show your testnet receive address" : "Derive an address before receiving"; }
       const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
       if (sendNav) { sendNav.disabled = !fullyScanned; sendNav.classList.toggle("disabled-nav", !fullyScanned); sendNav.title = fullyScanned ? "Review a testnet transaction" : "Sync the testnet wallet before sending"; }
       balanceContent.innerHTML = `<div class="balance-panel"><div class="balance-title">Observed testnet balance <span>${fullyScanned ? "SCAN AT TIP" : "PARTIAL SCAN"}</span></div><div class="balance-total">${zec(result.shieldedBalance + result.transparentBalance + result.pendingBalance)} <small>ZEC</small></div><div class="balance-breakdown"><div><span>Shielded</span><strong>${zec(result.shieldedBalance)}</strong></div><div><span>Transparent</span><strong>${zec(result.transparentBalance)}</strong></div><div><span>Pending</span><strong>${zec(result.pendingBalance)}</strong></div></div><p class="small-note">${fullyScanned ? "The wallet reports its scan at the current chain tip. Verify with transaction history before relying on this balance." : "This is a partial scan and may not include all incoming activity. Keep syncing until the scanned height catches up."}</p></div>`;
@@ -446,7 +453,14 @@ async function runSync() {
   } catch (error) {
     status.textContent = "Sync failed";
     feedback(error instanceof Error ? error.message : "Testnet synchronization failed.", true);
-  } finally { engineBusy = false; button.disabled = false; }
+  } finally {
+    engineBusy = false;
+    button.disabled = false;
+    const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
+    if (receiveNav) { receiveNav.disabled = !engineState; receiveNav.classList.toggle("disabled-nav", !engineState); }
+    const sendNav = root!.querySelector<HTMLButtonElement>('[data-action="send"]');
+    if (sendNav) { sendNav.disabled = !syncVerified; sendNav.classList.toggle("disabled-nav", !syncVerified); }
+  }
 }
 
 function feedback(message: string, error = false) {
