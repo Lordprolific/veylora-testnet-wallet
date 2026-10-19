@@ -12,8 +12,7 @@
   },
   "dependencies": {
     "@scure/bip39": "2.0.1",
-    "qrcode": "1.5.4",
-    "@chainsafe/webzjs-wallet": "0.1.0"
+    "qrcode": "1.5.4"
   },
   "devDependencies": {
     "@types/qrcode": "1.5.5",
