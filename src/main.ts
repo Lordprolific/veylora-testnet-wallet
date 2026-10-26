@@ -696,3 +696,5 @@ root.addEventListener("click", (event) => {
 
 homeView();
 void handleDappApprovalFromUrl();
+
+// DApp provider bridge restored in the MV3 extension package.
