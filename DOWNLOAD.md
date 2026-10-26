@@ -7,7 +7,7 @@
 
 **[Download the confirmed Veylora Wallet for Chrome](https://github.com/Lordprolific/veylora-testnet-wallet/releases/latest/download/veylora-chrome-extension-testnet.zip)**
 
-This permanent link downloads the ZIP attached to the latest GitHub Release. The current confirmed release is [Veylora Wallet — confirmed testnet build](https://github.com/Lordprolific/veylora-testnet-wallet/releases/tag/wallet-confirmed-2026-10-19).
+This permanent link downloads the updated ZIP attached to the [Veylora Wallet — confirmed testnet build](https://github.com/Lordprolific/veylora-testnet-wallet/releases/tag/wallet-confirmed-2026-10-19). The release is refreshed from the latest successful build containing the gRPC initialization resilience fix.
 
 ## Install
 
@@ -23,6 +23,6 @@ This permanent link downloads the ZIP attached to the latest GitHub Release. The
 - Never share your recovery phrase or private keys.
 - Verify wallet connection and signature flows in Veylora Market before relying on the integration.
 
-**Confirmed source build:** [GitHub Actions run #39243136147](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39243136147)  
-**Source artifact ID:** `12182138227`  
-**Build commit:** `aec9a14c27db6cc35115ad6b67036a253b96cd8e`
+**Confirmed source build:** [GitHub Actions run #40366150905](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39243136147)  
+**Source artifact ID:** `12670122968`  
+**Build commit:** `34027d2537076fe3c649258ecd78ec214f149c48`
