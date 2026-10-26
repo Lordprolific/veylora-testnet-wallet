@@ -15,7 +15,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Download the latest owner-confirmed Actions artifact archive
+      - name: Download and unpack the GitHub Actions artifact archive
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -24,8 +24,23 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/12670122968/zip" \
-            --output veylora-chrome-extension-testnet.zip
+            --output artifact-archive.zip
+          test -s artifact-archive.zip
+          mkdir artifact-unpacked
+          unzip -q artifact-archive.zip -d artifact-unpacked
+
+          # GitHub Actions wraps uploaded artifacts in its own ZIP. Publish the
+          # actual extension ZIP inside it, never the outer artifact container.
+          mapfile -t extension_zips < <(find artifact-unpacked -type f -name 'veylora-chrome-extension-testnet.zip')
+          if [ "${#extension_zips[@]}" -ne 1 ]; then
+            echo "Expected exactly one extension ZIP inside the Actions artifact; found ${#extension_zips[@]}." >&2
+            echo "Artifact contents:" >&2
+            find artifact-unpacked -maxdepth 4 -type f -print >&2
+            exit 1
+          fi
+          cp "${extension_zips[0]}" veylora-chrome-extension-testnet.zip
           test -s veylora-chrome-extension-testnet.zip
+          unzip -tq veylora-chrome-extension-testnet.zip
           sha256sum veylora-chrome-extension-testnet.zip | tee wallet-zip.sha256
 
       - name: Publish permanent GitHub Release asset
@@ -35,6 +50,8 @@ jobs:
           name: Veylora Wallet — confirmed testnet build
           body: |
             Publishes the latest successful standalone wallet build selected by the project owner as the confirmed Veylora testnet wallet build.
+
+            The downloadable asset is the extension ZIP itself, not a ZIP containing another ZIP.
 
             Source workflow: https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/40366150905
             Source artifact ID: 12670122968
