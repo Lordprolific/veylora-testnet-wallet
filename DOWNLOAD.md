@@ -23,6 +23,6 @@ This permanent link downloads the updated ZIP attached to the [Veylora Wallet â€
 - Never share your recovery phrase or private keys.
 - Verify wallet connection and signature flows in Veylora Market before relying on the integration.
 
-**Confirmed source build:** [GitHub Actions run #40366150905](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/39243136147)  
+**Confirmed source build:** [GitHub Actions run #40366150905](https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/40366150905)  
 **Source artifact ID:** `12670122968`  
 **Build commit:** `34027d2537076fe3c649258ecd78ec214f149c48`
