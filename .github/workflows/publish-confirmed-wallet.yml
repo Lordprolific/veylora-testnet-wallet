@@ -23,7 +23,7 @@ jobs:
           curl --fail --location \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/12672386962/zip" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/12671734650/zip" \
             --output artifact-archive.zip
           test -s artifact-archive.zip
           mkdir artifact-unpacked
@@ -53,9 +53,9 @@ jobs:
 
             The downloadable asset is the extension ZIP itself, not a ZIP containing another ZIP.
 
-            Source workflow: https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/40370859367
-            Source artifact ID: 12672386962
-            Source build commit: 35c57e1664415b97cb6f91203c1613f77ed3e5bb
+            Source workflow: https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/40372052004
+            Source artifact ID: 12671734650
+            Source build commit: 3ee7e8381c33f194d0e232c9a2ee8a7b3261f543
 
             This is an experimental Zcash testnet wallet. Do not use mainnet funds.
           files: |
