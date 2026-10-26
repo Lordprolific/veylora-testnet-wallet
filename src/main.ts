@@ -74,7 +74,7 @@ function setupRecoveryPhraseInputs() {
   grid.addEventListener("paste", (event) => {
     const clipboard = event as ClipboardEvent;
     const raw = clipboard.clipboardData?.getData("text") ?? "";
-    const words = raw.trim().toLowerCase().split(/\\s+/).filter(Boolean);
+    const words = raw.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length !== 24) return;
     clipboard.preventDefault();
     grid.querySelectorAll<HTMLInputElement>("input[data-word-index]").forEach((input, index) => { input.value = words[index] ?? ""; });
@@ -83,8 +83,8 @@ function setupRecoveryPhraseInputs() {
   grid.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement) || !target.matches("input[data-word-index]")) return;
-    if (/\\s/.test(target.value.trim())) {
-      const words = target.value.trim().toLowerCase().split(/\\s+/).filter(Boolean);
+    if (/\s/.test(target.value.trim())) {
+      const words = target.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
       const inputs = Array.from(grid.querySelectorAll<HTMLInputElement>("input[data-word-index]"));
       const start = Number(target.dataset.wordIndex);
       if (words.length > 1 && start + words.length <= inputs.length) words.forEach((word, offset) => { inputs[start + offset].value = word; });
