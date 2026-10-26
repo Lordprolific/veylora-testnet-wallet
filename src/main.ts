@@ -33,6 +33,64 @@ let pendingPhrase = "";
 let phraseChallengeIndexes: number[] = [];
 let phraseVisible = false;
 let busy = false;
+const AUTO_LOCK_MS = 5 * 60 * 1000;
+let autoLockTimer: number | null = null;
+let autoLockListenersAttached = false;
+
+function clearAutoLockTimer() {
+  if (autoLockTimer !== null) window.clearTimeout(autoLockTimer);
+  autoLockTimer = null;
+}
+
+function armAutoLockTimer() {
+  clearAutoLockTimer();
+  if (!getUnlockedRecoveryPhrase()) return;
+  autoLockTimer = window.setTimeout(() => {
+    lifecycleGeneration += 1;
+    lockVault();
+    cancelPendingTestnetTransfer();
+    pendingTransferDetails = null;
+    releaseTestnetWallet();
+    engineState = null;
+    phraseVisible = false;
+    screen = "home";
+    homeView();
+    feedback("Wallet locked after 5 minutes of inactivity. Enter your password to unlock it.");
+  }, AUTO_LOCK_MS);
+}
+
+function setupAutoLock() {
+  if (autoLockListenersAttached) return;
+  autoLockListenersAttached = true;
+  const activity = () => { if (getUnlockedRecoveryPhrase()) armAutoLockTimer(); };
+  ["pointerdown", "keydown", "touchstart", "wheel"].forEach((eventName) => {
+    window.addEventListener(eventName, activity, { passive: true });
+  });
+}
+
+function setupRecoveryPhraseInputs() {
+  const grid = root!.querySelector<HTMLDivElement>("#recovery-phrase-grid");
+  if (!grid) return;
+  grid.addEventListener("paste", (event) => {
+    const clipboard = event as ClipboardEvent;
+    const raw = clipboard.clipboardData?.getData("text") ?? "";
+    const words = raw.trim().toLowerCase().split(/\\s+/).filter(Boolean);
+    if (words.length !== 24) return;
+    clipboard.preventDefault();
+    grid.querySelectorAll<HTMLInputElement>("input[data-word-index]").forEach((input, index) => { input.value = words[index] ?? ""; });
+    feedback("All 24 recovery words were filled in. Check the order before continuing.");
+  });
+  grid.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.matches("input[data-word-index]")) return;
+    if (/\\s/.test(target.value.trim())) {
+      const words = target.value.trim().toLowerCase().split(/\\s+/).filter(Boolean);
+      const inputs = Array.from(grid.querySelectorAll<HTMLInputElement>("input[data-word-index]"));
+      const start = Number(target.dataset.wordIndex);
+      if (words.length > 1 && start + words.length <= inputs.length) words.forEach((word, offset) => { inputs[start + offset].value = word; });
+    }
+  });
+}
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -152,7 +210,7 @@ function passwordView(mode: "create" | "restore") {
       <div class="eyebrow">${mode === "create" ? "STEP 2 OF 2 · ENCRYPTION" : "WALLET RECOVERY"}</div>
       <h2>${mode === "create" ? "Protect your wallet" : "Restore your wallet"}</h2>
       <p class="flow-copy">${mode === "create" ? "Create a strong password to encrypt your recovery phrase on this device. Use at least 8 characters." : "Enter your 24-word recovery phrase and choose a new local encryption password."}</p>
-      ${mode === "restore" ? '<label class="field-label" for="recovery">24-word recovery phrase</label><textarea id="recovery" rows="4" autocomplete="off" spellcheck="false" placeholder="Enter your 24 words in order"></textarea>' : ""}
+      ${mode === "restore" ? '<label class="field-label">24-word recovery phrase</label><p class="password-hint recovery-template-hint">Paste the complete phrase into any word box. All 24 positions fill automatically.</p><div id="recovery-phrase-grid" class="recovery-phrase-grid">' + Array.from({length:24},(_,i)=>'<label class="recovery-word-field"><span>'+(i+1)+'</span><input data-word-index="'+i+'" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Recovery word '+(i+1)+'" placeholder="Word '+(i+1)+'" /></label>').join('') + '</div>' : ""}
 
       <form id="password-form">
         ${mode === "restore" && vaultExists() ? '<label class="check-row destructive-check"><input type="checkbox" id="replace-existing" required /> I understand this will replace the existing encrypted vault on this device.</label>' : ""}
@@ -164,6 +222,7 @@ function passwordView(mode: "create" | "restore") {
         <button class="primary form-submit" type="submit" ${busy ? "disabled" : ""}>${mode === "create" ? "Encrypt and create vault" : "Restore and encrypt vault"} <span>↗</span></button>
       </form>
     </section>`);
+  if (mode === "restore") setupRecoveryPhraseInputs();
   root!.querySelector<HTMLFormElement>("#password-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const password = root!.querySelector<HTMLInputElement>("#password")?.value ?? "";
@@ -172,7 +231,7 @@ function passwordView(mode: "create" | "restore") {
     if (password !== confirm) return feedback("The passwords do not match.", true);
     let phrase = pendingPhrase;
     if (mode === "restore") {
-      const raw = root!.querySelector<HTMLTextAreaElement>("#recovery")?.value ?? "";
+      const raw = Array.from(root!.querySelectorAll<HTMLInputElement>("#recovery-phrase-grid input[data-word-index]"), (input) => input.value.trim().toLowerCase()).join(" ");
       try { phrase = validateRecoveryPhrase(raw); } catch (error) { return feedback(error instanceof Error ? error.message : "Invalid recovery phrase.", true); }
     }
     busy = true;
@@ -183,6 +242,8 @@ function passwordView(mode: "create" | "restore") {
       pendingPhrase = "";
       screen = "vault";
       await vaultView(password);
+      setupAutoLock();
+      armAutoLockTimer();
       feedback(mode === "create" ? "Encrypted vault created. Initializing the testnet account…" : "Recovery phrase encrypted. Restoring the testnet account…");
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Could not save the encrypted vault.", true);
@@ -209,7 +270,9 @@ function unlockView() {
       await unlockVault(password);
       screen = "vault";
       await vaultView(password);
-      feedback("Vault unlocked for this browser session.");
+      setupAutoLock();
+      armAutoLockTimer();
+      feedback("Vault unlocked. It will lock after 5 minutes without activity.");
     } catch (error) { feedback(error instanceof Error ? error.message : "Could not unlock the vault.", true); }
   });
 }
@@ -558,7 +621,7 @@ root.addEventListener("click", (event) => {
   else if (action === "reveal") { phraseVisible = !phraseVisible; void vaultView(); }
   else if (action === "copy-address" || action === "copy-transparent") { const address = action === "copy-address" ? engineState?.unifiedAddress : engineState?.transparentAddress; if (address) navigator.clipboard.writeText(address).then(() => feedback("Address copied."), () => feedback("Could not copy address. Select and copy it manually.", true)); }
   
-  else if (action === "lock") { if (engineBusy) { feedback("Wait for the active wallet operation to finish before locking.", true); return; } lifecycleGeneration += 1; lockVault(); cancelPendingTestnetTransfer(); pendingTransferDetails = null; releaseTestnetWallet(); engineState = null;  phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
+  else if (action === "lock") { if (engineBusy) { feedback("Wait for the active wallet operation to finish before locking.", true); return; } clearAutoLockTimer(); lifecycleGeneration += 1; lockVault(); cancelPendingTestnetTransfer(); pendingTransferDetails = null; releaseTestnetWallet(); engineState = null;  phraseVisible = false; screen = "home"; homeView(); feedback("Vault locked for this browser session."); }
 });
 
 homeView();
