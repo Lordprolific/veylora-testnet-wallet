@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { createTestnetAccount, restoreTestnetAccount, getTestnetHistory, prepareTestnetTransfer, cancelPendingTestnetTransfer, authorizeAndBroadcastTestnetTransfer, getTestnetDatabase, releaseTestnetWallet } from "./wallet/zcash-engine.js";
 
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
-let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array } | null = null;
+let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array; networkError?: string | null } | null = null;
 let engineBusy = false;
 let lifecycleGeneration = 0;
 let pendingTransferDetails: any = null;
@@ -259,17 +259,19 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
   const addressContent = root!.querySelector<HTMLElement>("#address-content");
   if (!status || !addressContent) return;
   if (engineState) {
-    status.textContent = "Address ready";
+    status.textContent = engineState.networkError ? "Address ready · network unavailable" : "Address ready";
     const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
-    if (walletChip) walletChip.textContent = "ADDRESS READY";
+    if (walletChip) walletChip.textContent = engineState.networkError ? "NETWORK LIMITED" : "ADDRESS READY";
     const addressState = root!.querySelector<HTMLElement>("#address-state");
     if (addressState) addressState.textContent = "Ready";
     const accountLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (accountLabels[1]) accountLabels[1].textContent = "DERIVED LOCALLY";
-    if (accountLabels[2]) accountLabels[2].textContent = "NETWORK DATA";
+    if (accountLabels[2]) accountLabels[2].textContent = engineState.networkError ? "NETWORK UNAVAILABLE" : "NETWORK DATA";
     const indicator = root!.querySelector(".sync-status-line .status-indicator");
     indicator?.classList.add("status-ready");
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Balance and incoming activity are shown when available from the network.</p>`;
+    const engineError = root!.querySelector<HTMLElement>("#engine-error");
+    if (engineError && engineState.networkError) { engineError.hidden = false; engineError.textContent = `Address is ready, but the testnet service is unavailable: ${engineState.networkError}`; }
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">${engineState.networkError ? "Your address was derived locally. Network balances and activity are temporarily unavailable; retry network access before syncing or sending." : "Your address is ready to receive testnet coins. Balance and incoming activity are shown when available from the network."}</p>${engineState.networkError ? '<button class="secondary" data-action="retry-engine">Retry network connection</button>' : ""}`;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
     if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
     root!.querySelectorAll<HTMLButtonElement>('[data-action="activity"]').forEach((activityButton) => { activityButton.disabled = false; activityButton.classList.remove("disabled-nav"); });
@@ -289,19 +291,22 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     }
     if (generation !== lifecycleGeneration) { releaseTestnetWallet(); engineState = null; return; }
     localStorage.setItem(WALLET_META_KEY, JSON.stringify({ birthdayHeight: engineState.birthdayHeight, accountId: engineState.accountId, unifiedAddress: engineState.unifiedAddress, transparentAddress: engineState.transparentAddress }));
-    status.textContent = "Address ready";
+    status.textContent = engineState.networkError ? "Address ready · network unavailable" : "Address ready";
     const walletChip = root!.querySelector<HTMLElement>("#wallet-state-chip");
-    if (walletChip) walletChip.textContent = "ADDRESS READY";
+    if (walletChip) walletChip.textContent = engineState.networkError ? "NETWORK LIMITED" : "ADDRESS READY";
     const addressState = root!.querySelector<HTMLElement>("#address-state");
     if (addressState) addressState.textContent = "Ready";
     const statusLabels = root!.querySelectorAll<HTMLElement>(".status-panel .status-row strong");
     if (statusLabels[1]) statusLabels[1].textContent = "DERIVED LOCALLY";
-    if (statusLabels[2]) statusLabels[2].textContent = "SCAN DISABLED";
+    if (statusLabels[2]) statusLabels[2].textContent = engineState.networkError ? "NETWORK UNAVAILABLE" : "SCAN DISABLED";
     root!.querySelector(".sync-status-line .status-indicator")?.classList.add("status-ready");
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">Your address is ready to receive testnet coins. Balance and activity update when network data is available.</p>`;
+    const engineError = root!.querySelector<HTMLElement>("#engine-error");
+    if (engineError && engineState.networkError) { engineError.hidden = false; engineError.textContent = `Address is ready, but the testnet service is unavailable: ${engineState.networkError}`; }
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">${engineState.networkError ? "Your address was derived locally. Network balances and activity are temporarily unavailable; retry network access before syncing or sending." : "Your address is ready to receive testnet coins. Balance and activity update when network data is available."}</p>`;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
     if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
     root!.querySelectorAll<HTMLButtonElement>('[data-action="activity"]').forEach((activityButton) => { activityButton.disabled = false; activityButton.classList.remove("disabled-nav"); });
+    if (engineState.networkError) feedback("Your address is ready, but the testnet service is currently unavailable. Do not sync or send until network access is restored.", false);
   } catch (error) {
     if (generation !== lifecycleGeneration) return;
     status.textContent = "Engine unavailable";
@@ -326,6 +331,12 @@ function formatZatoshis(value: unknown): string {
 }
 
 function sendView() {
+  if (engineState?.networkError) {
+    feedback("The testnet service is unavailable. Retry the network connection before preparing or sending a transaction.", true);
+    screen = "vault";
+    void vaultView();
+    return;
+  }
   if (!engineState || !getUnlockedRecoveryPhrase()) {
     screen = "vault";
     void vaultView();
@@ -529,6 +540,14 @@ root.addEventListener("click", (event) => {
   else if (action === "restore") { screen = "restore"; passwordView("restore"); }
   else if (action === "unlock") { screen = "unlock"; unlockView(); }
   else if (action === "vault") { screen = "vault"; void vaultView(); }
+  else if (action === "retry-engine") {
+    lifecycleGeneration += 1;
+    releaseTestnetWallet();
+    engineState = null;
+    screen = "vault";
+    void vaultView();
+    feedback("Retrying the testnet connection. Your encrypted vault is unchanged.");
+  }
   else if (action === "receive") { void receiveView(); }
   else if (action === "activity") { void activityView(); }
   else if (action === "send") { sendView(); }
