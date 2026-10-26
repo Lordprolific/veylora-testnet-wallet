@@ -271,7 +271,7 @@ async function initializeEngineForPhrase(phrase: string, password?: string) {
     indicator?.classList.add("status-ready");
     const engineError = root!.querySelector<HTMLElement>("#engine-error");
     if (engineError && engineState.networkError) { engineError.hidden = false; engineError.textContent = `Address is ready, but the testnet service is unavailable: ${engineState.networkError}`; }
-    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">${engineState.networkError ? "Your address was derived locally. Network balances and activity are temporarily unavailable; retry network access before syncing or sending." : "Your address is ready to receive testnet coins. Balance and incoming activity are shown when available from the network."}</p>`;
+    addressContent.innerHTML = `<div class="address-block"><label>Unified testnet address</label><code>${escapeHtml(engineState.unifiedAddress)}</code><button class="copy-address" data-action="copy-address">Copy address</button></div><div class="address-block"><label>Transparent testnet address</label><code>${escapeHtml(engineState.transparentAddress)}</code><button class="copy-address" data-action="copy-transparent">Copy address</button></div><p class="small-note">${engineState.networkError ? "Your address was derived locally. Network balances and activity are temporarily unavailable; retry network access before syncing or sending." : "Your address is ready to receive testnet coins. Balance and incoming activity are shown when available from the network."}</p>${engineState.networkError ? '<button class="secondary" data-action="retry-engine">Retry network connection</button>' : ""}`;
     const receiveNav = root!.querySelector<HTMLButtonElement>('[data-action="receive"]');
     if (receiveNav) { receiveNav.disabled = false; receiveNav.classList.remove("disabled-nav"); receiveNav.title = "Show your testnet receive address"; }
     root!.querySelectorAll<HTMLButtonElement>('[data-action="activity"]').forEach((activityButton) => { activityButton.disabled = false; activityButton.classList.remove("disabled-nav"); });
@@ -331,6 +331,12 @@ function formatZatoshis(value: unknown): string {
 }
 
 function sendView() {
+  if (engineState?.networkError) {
+    feedback("The testnet service is unavailable. Retry the network connection before preparing or sending a transaction.", true);
+    screen = "vault";
+    void vaultView();
+    return;
+  }
   if (!engineState || !getUnlockedRecoveryPhrase()) {
     screen = "vault";
     void vaultView();
@@ -534,6 +540,14 @@ root.addEventListener("click", (event) => {
   else if (action === "restore") { screen = "restore"; passwordView("restore"); }
   else if (action === "unlock") { screen = "unlock"; unlockView(); }
   else if (action === "vault") { screen = "vault"; void vaultView(); }
+  else if (action === "retry-engine") {
+    lifecycleGeneration += 1;
+    releaseTestnetWallet();
+    engineState = null;
+    screen = "vault";
+    void vaultView();
+    feedback("Retrying the testnet connection. Your encrypted vault is unchanged.");
+  }
   else if (action === "receive") { void receiveView(); }
   else if (action === "activity") { void activityView(); }
   else if (action === "send") { sendView(); }
