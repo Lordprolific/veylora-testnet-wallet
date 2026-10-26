@@ -23,7 +23,7 @@ jobs:
           curl --fail --location \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/12670122968/zip" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/12672386962/zip" \
             --output artifact-archive.zip
           test -s artifact-archive.zip
           mkdir artifact-unpacked
@@ -49,13 +49,13 @@ jobs:
           tag_name: wallet-confirmed-2026-10-19
           name: Veylora Wallet — confirmed testnet build
           body: |
-            Publishes the latest successful standalone wallet build selected by the project owner as the confirmed Veylora testnet wallet build.
+            Publishes the standalone wallet build validated by the successful UI regression, standalone build, and demo workflows as the confirmed Veylora testnet wallet build.
 
             The downloadable asset is the extension ZIP itself, not a ZIP containing another ZIP.
 
-            Source workflow: https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/40366150905
-            Source artifact ID: 12670122968
-            Source build commit: 34027d2537076fe3c649258ecd78ec214f149c48
+            Source workflow: https://github.com/Lordprolific/veylora-testnet-wallet/actions/runs/40370859367
+            Source artifact ID: 12672386962
+            Source build commit: 35c57e1664415b97cb6f91203c1613f77ed3e5bb
 
             This is an experimental Zcash testnet wallet. Do not use mainnet funds.
           files: |
