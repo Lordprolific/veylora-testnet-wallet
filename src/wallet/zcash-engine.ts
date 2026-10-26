@@ -14,6 +14,8 @@ export interface TestnetWalletState {
   scannedHeight: string;
   birthdayHeight: number;
   database: Uint8Array;
+  /** Non-fatal testnet service error; local address derivation may still succeed. */
+  networkError: string | null;
 }
 
 async function initializeWasmOnce(): Promise<void> {
@@ -43,8 +45,18 @@ export async function createTestnetAccount(seedPhrase: string, birthdayHeight?: 
   await initializeWasmOnce();
   const wallet = new WebWallet("test", TESTNET_LIGHTWALLETD_PROXY, 1, 1, null);
   try {
-    const latestHeight = await wallet.get_latest_block();
-    const birthday = birthdayHeight === undefined ? Number(latestHeight) : birthdayHeight;
+    // The address and account are derived locally. A transient Lightwalletd/gRPC
+    // failure must not prevent the user from opening the vault or receiving an address.
+    let latestHeight = "unavailable";
+    let networkError: string | null = null;
+    try {
+      latestHeight = String(await wallet.get_latest_block());
+    } catch (error) {
+      networkError = error instanceof Error ? error.message : String(error);
+    }
+    const birthday = birthdayHeight === undefined
+      ? (latestHeight === "unavailable" ? 0 : Number(latestHeight))
+      : birthdayHeight;
     const accountId = await wallet.create_account("Veylora", seedPhrase, 0, birthday);
     const unifiedAddress = await wallet.get_current_address(accountId);
     const transparentAddress = await wallet.get_current_address_transparent(accountId);
@@ -55,10 +67,11 @@ export async function createTestnetAccount(seedPhrase: string, birthdayHeight?: 
       accountId,
       unifiedAddress,
       transparentAddress,
-      chainHeight: String(latestHeight),
+      chainHeight: latestHeight,
       scannedHeight: String(birthday),
       birthdayHeight: birthday,
       database,
+      networkError,
     };
   } catch (error) {
     wallet.free();
@@ -74,21 +87,34 @@ export async function restoreTestnetAccount(database: Uint8Array, accountId: num
   await initializeWasmOnce();
   const wallet = new WebWallet("test", TESTNET_LIGHTWALLETD_PROXY, 1, 1, database);
   try {
-    const latestHeight = await wallet.get_latest_block();
+    // Restoring local account/address data must not depend on a live chain-tip call.
+    let latestHeight = "unavailable";
+    let networkError: string | null = null;
+    try {
+      latestHeight = String(await wallet.get_latest_block());
+    } catch (error) {
+      networkError = error instanceof Error ? error.message : String(error);
+    }
     const unifiedAddress = await wallet.get_current_address(accountId);
     const transparentAddress = await wallet.get_current_address_transparent(accountId);
     const serialized = await wallet.db_to_bytes();
-    const summary = await wallet.get_wallet_summary();
+    let summary: any = null;
+    try {
+      summary = await wallet.get_wallet_summary();
+    } catch (error) {
+      networkError ??= error instanceof Error ? error.message : String(error);
+    }
     walletInstance = wallet;
     activeAccountId = accountId;
     return {
       accountId,
       unifiedAddress,
       transparentAddress,
-      chainHeight: String(latestHeight),
+      chainHeight: latestHeight,
       scannedHeight: String(summary?.fully_scanned_height ?? 0),
       birthdayHeight: 0,
       database: serialized,
+      networkError,
     };
   } catch (error) { wallet.free(); throw error; }
 }
