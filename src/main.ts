@@ -1,10 +1,12 @@
 import "./style.css";
+import { signMarketChallenge } from "./wallet/dapp-identity.js";
 import QRCode from "qrcode";
 import { createTestnetAccount, restoreTestnetAccount, getTestnetHistory, prepareTestnetTransfer, cancelPendingTestnetTransfer, authorizeAndBroadcastTestnetTransfer, getTestnetDatabase, releaseTestnetWallet } from "./wallet/zcash-engine.js";
 
 const WALLET_META_KEY = "veylora.testnet-wallet-meta.v1";
 let engineState: { accountId: number; unifiedAddress: string; transparentAddress: string; chainHeight: string; scannedHeight: string; birthdayHeight: number; database: Uint8Array; networkError?: string | null } | null = null;
 let engineBusy = false;
+let engineReadyPromise: Promise<void> | null = null;
 let lifecycleGeneration = 0;
 let pendingTransferDetails: any = null;
 let transferRecipient = "";
@@ -119,6 +121,74 @@ function shell(content: string) {
       </main>
     </div>`;
 }
+
+// dApp account sharing and message signing are approved inside this trusted extension page.
+async function handleDappApprovalFromUrl() {
+  const url = new URL(window.location.href);
+  const requestId = url.searchParams.get("dappApproval");
+  if (!requestId) return;
+  const runtime = (globalThis as any).chrome?.runtime;
+  if (!runtime?.sendMessage) return;
+  let keepRequest = false;
+  try {
+    const pending = await runtime.sendMessage({type:"VEY LORA_DAPP_GET_PENDING",requestId});
+    if (!pending || pending.error || pending.requestId !== requestId) {
+      feedback("This wallet request expired. Return to Veylora Market and try again.", true);
+      return;
+    }
+    if (!getUnlockedRecoveryPhrase()) {
+      keepRequest = true;
+      screen = "home";
+      homeView();
+      feedback("Unlock your wallet, then return to this approval tab to continue.", true);
+      return;
+    }
+    // Unlocking the encrypted vault and deriving the Zcash account are separate async steps.
+    // Wait for derivation instead of dropping a valid dApp request during that gap.
+    if (!engineState && engineReadyPromise) await engineReadyPromise;
+    if (!engineState) {
+      keepRequest = true;
+      screen = "vault";
+      await vaultView();
+      feedback("Your wallet is unlocked, but its testnet account is still unavailable. Keep this tab open and retry after the address is ready.", true);
+      return;
+    }
+    let response: any;
+    if (pending.method === "zcash_requestAccounts") {
+      const approved = window.confirm("Connect Veylora Wallet?\n\nWebsite: " + pending.origin + "\n\nThis shares your Zcash testnet unified and transparent addresses. It does not authorize a payment.");
+      response = await runtime.sendMessage(approved ? {
+        type:"VEY LORA_DAPP_APPROVAL_RESULT",requestId,approved:true,
+        accounts:{shielded:engineState.unifiedAddress,transparent:engineState.transparentAddress}
+      } : {type:"VEY LORA_DAPP_APPROVAL_RESULT",requestId,approved:false,error:"You declined to connect this website."});
+      if (response?.ok) feedback(approved ? "Market connected. No payment was authorized." : "Connection declined.");
+    } else if (pending.method === "zcash_signMessage") {
+      const message = Array.isArray(pending.params) ? pending.params[0] : "";
+      const options = Array.isArray(pending.params) ? pending.params[1] : {};
+      if (typeof message !== "string" || !message || message.length > 4096) throw new Error("Invalid sign-in challenge.");
+      const approved = window.confirm("Sign Veylora Market sign-in challenge?\n\nWebsite: " + pending.origin + "\n\nThe site will receive a signature, public key and testnet identity address. This is not a payment and grants no spending permission.\n\nMessage:\n" + message.slice(0, 1200));
+      if (!approved) {
+        response = await runtime.sendMessage({type:"VEY LORA_DAPP_APPROVAL_RESULT",requestId,approved:false,error:"You declined to sign this message."});
+      } else {
+        const signature = signMarketChallenge(getUnlockedRecoveryPhrase()!, message);
+        response = await runtime.sendMessage({type:"VEY LORA_DAPP_APPROVAL_RESULT",requestId,approved:true,signature});
+      }
+      if (response?.ok) feedback(approved ? "Sign-in challenge signed. Return to Veylora Market." : "Signing declined.");
+    } else {
+      throw new Error("This wallet request is not supported.");
+    }
+    if (!response?.ok) feedback(response?.error || "Could not complete wallet approval.", true);
+    else { window.close(); }
+  } catch (error) {
+    feedback(error instanceof Error ? error.message : "Could not process wallet approval.", true);
+  } finally {
+    if (!keepRequest) {
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete("dappApproval");
+      history.replaceState(null, "", clean.pathname + clean.search + clean.hash);
+    }
+  }
+}
+
 
 function homeView() {
   const exists = vaultExists();
@@ -313,7 +383,7 @@ async function vaultView(password?: string) {
       ${phraseVisible ? `<section class="dashboard-card phrase-reveal"><div class="section-heading"><div><span class="section-kicker">PRIVATE BACKUP</span><h3>Recovery phrase</h3></div><button class="text-action" data-action="reveal">Hide phrase</button></div><p>Keep this phrase private. Anyone who sees it can control the wallet.</p><div>${phrase.split(" ").map((word, i) => `<span><small>${i + 1}</small>${escapeHtml(word)}</span>`).join("")}</div></section>` : ""}
       <div class="dashboard-footer-actions"><span><span class="secure-dot"></span> Keys stay on this device</span><button class="text-action" data-action="lock">Lock wallet</button></div>
     </section>`);
-  void initializeEngineForPhrase(phrase, password);
+  engineReadyPromise = initializeEngineForPhrase(phrase, password).finally(() => { engineReadyPromise = null; });
 }
 async function initializeEngineForPhrase(phrase: string, password?: string) {
   const generation = lifecycleGeneration;
@@ -625,3 +695,4 @@ root.addEventListener("click", (event) => {
 });
 
 homeView();
+void handleDappApprovalFromUrl();
