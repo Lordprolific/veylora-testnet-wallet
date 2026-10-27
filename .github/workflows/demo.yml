@@ -72,4 +72,4 @@ jobs:
         run: node --check popup.js
       - name: Check actual wallet popup controls
         run: |
-          node -e 'const fs=require("fs"); const html=fs.readFileSync("popup.html","utf8"); const js=fs.readFileSync("src/popup.ts","utf8"); if (!html.includes("id=\"app\"")) throw new Error("Popup app mount is missing"); if (!html.includes("id=\"expand-wallet\"") || !js.includes("#expand-wallet") || !js.includes("wallet.html")) throw new Error("Expand wallet control is not wired"); if (!html.includes("src/main.ts")) throw new Error("Wallet application entry is missing"); console.log("Wallet popup controls are wired")'
+          node -e 'const fs=require("fs"); const html=fs.readFileSync("popup.html","utf8"); const js=fs.readFileSync("src/popup.ts","utf8"); if (!html.includes("id=\"expand-wallet\"") || !js.includes("#expand-wallet") || !js.includes("wallet.html")) throw new Error("Open wallet control is not wired"); if (html.includes("src/main.ts") || html.includes("id=\"app\"")) throw new Error("Popup must not initialize the WebZjs wallet app"); console.log("Popup launcher is wired and does not initialize WebZjs")'
