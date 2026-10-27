@@ -15,7 +15,18 @@ on:
       - "vite.config.ts"
       - ".github/workflows/standalone-wallet-build.yml"
   push:
-    branches: [feat/standalone-zcash-wallet]
+    branches: [main, feat/standalone-zcash-wallet]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "scripts/**"
+      - "wallet.html"
+      - "manifest.json"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "vite.config.ts"
+      - ".github/workflows/standalone-wallet-build.yml"
   workflow_dispatch:
 
 permissions:
