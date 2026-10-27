@@ -8,6 +8,13 @@ Veylora is being developed as an independent Zcash wallet. It is not intended to
 
 > **Status: experimental Zcash testnet wallet; not audited and not for real funds.** The extension implements local vault creation and recovery, encrypted local persistence, WebZjs testnet address derivation, manual sync, balance/history rendering, receive QR, and a proposal-reviewed send flow. Implementation does not mean end-to-end verification: install and test the extension in real Chrome before relying on address correctness, incoming balance detection, synchronization, or payments. Receive becomes available after an address is derived; Send remains gated until the scan reaches the reported chain tip. Testnet coins have no intended monetary value.
 
+## Official Chrome extension
+
+- **Download latest release:** https://github.com/Lordprolific/veylora-testnet-wallet/releases/latest/download/veylora-chrome-extension-testnet.zip
+- **Installation guide:** https://github.com/Lordprolific/veylora-testnet-wallet/blob/main/DOWNLOAD.md
+- The toolbar popup is a launcher only. Open the wallet in its own extension tab so WebZjs can initialize with the extension's cross-origin isolation policies.
+- If replacing an older installation, keep the existing extension data and local vault intact. Do not remove browser data or reset the vault as part of an update.
+
 ## Live demo
 
 - **Hosted lab:** https://veylora-zcash-dapp-lab.vercel.app
@@ -40,7 +47,7 @@ Every payment must be reviewed and approved inside Noir Wallet. A returned trans
 6. Run `npm run dev`.
 7. Open the local site in a browser with the official Noir testnet extension installed and independently confirm its network.
 
-To load the extension, first download and extract the `veylora-chrome-extension-testnet.zip` artifact from the successful **Standalone wallet build** workflow, then open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the extracted extension folder. Keep the wallet on testnet. The current release still requires real-browser checks for vault restoration, persistence after browser restart, address correctness, scan-to-tip, receiving/balance visibility, and a controlled testnet send with independent transaction confirmation.
+To install the extension, download and extract the latest `veylora-chrome-extension-testnet.zip` release, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the extracted extension folder containing `manifest.json`. For an existing install, preserve its extension data and local vault. Click the toolbar icon and choose **Open Veylora Wallet** to run the full wallet in its own tab. Keep the wallet on testnet. The current release still requires real-browser checks for vault restoration, persistence after browser restart, address correctness, scan-to-tip, receiving/balance visibility, and a controlled testnet send with independent transaction confirmation.
 
 ## Security principles
 
