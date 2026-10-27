@@ -6,6 +6,7 @@ on:
     paths:
       - "src/**"
       - "public/**"
+      - "scripts/**"
       - "wallet.html"
       - "manifest.json"
       - "package.json"
@@ -57,7 +58,10 @@ jobs:
         run: |
           test -f dist/manifest.json
           test -f dist/background.js
+          test -f dist/dapp-content.js
+          test -f dist/dapp-provider.js
           test -f dist/wallet.html
+          node --input-type=module -e 'import fs from "node:fs"; const m=JSON.parse(fs.readFileSync("dist/manifest.json","utf8")); for (const p of (m.content_scripts||[]).flatMap(x=>x.js||[])) if (!fs.existsSync("dist/"+p)) throw Error("Manifest content script missing from package: "+p); for (const p of (m.web_accessible_resources||[]).flatMap(x=>x.resources||[])) if (!fs.existsSync("dist/"+p)) throw Error("Manifest web-accessible resource missing from package: "+p); console.log("All manifest-declared scripts/resources exist at extension root")'
           test -f dist/assets/veylora-mark.svg
           test -f dist/icons/icon16.png
           test -f dist/icons/icon48.png
