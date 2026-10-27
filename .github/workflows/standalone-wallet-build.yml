@@ -38,7 +38,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 concurrency:
@@ -90,6 +90,26 @@ jobs:
         run: |
           cd dist
           zip -r ../veylora-chrome-extension-testnet.zip .
+          cd ..
+          sha256sum veylora-chrome-extension-testnet.zip > wallet-zip.sha256
+      - name: Publish latest Chrome extension release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: wallet-isolated-2026-10-27
+          name: Veylora Wallet 0.3.3 — Isolated wallet page
+          target_commitish: main
+          body: |
+            Veylora Wallet 0.3.3 testnet-only Chrome extension.
+
+            - Toolbar popup opens the wallet in its own extension tab.
+            - Build verifies the manifest's COOP/COEP isolation policies and required dApp bridge resources.
+            - Testnet only; experimental and unaudited.
+            - Chrome real-browser wallet and Market integration checks are still required.
+          files: |
+            veylora-chrome-extension-testnet.zip
+            wallet-zip.sha256
+          make_latest: true
       - uses: actions/upload-artifact@v4
         with:
           name: veylora-chrome-extension-testnet
