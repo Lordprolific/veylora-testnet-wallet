@@ -96,13 +96,15 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: wallet-isolated-2026-10-27
-          name: Veylora Wallet 0.3.3 — Isolated wallet page
+          tag_name: wallet-0.3.4-2026-10-27
+          name: Veylora Wallet 0.3.4 — In-wallet approvals and recovery paste
           target_commitish: main
           body: |
-            Veylora Wallet 0.3.3 testnet-only Chrome extension.
+            Veylora Wallet 0.3.4 testnet-only Chrome extension.
 
             - Toolbar popup opens the wallet in its own extension tab.
+            - In-wallet approval UI for connection and sign-in signatures.
+            - Recovery phrase paste fills consecutive fields or all 24 fields for a complete phrase.
             - Build verifies the manifest's COOP/COEP isolation policies and required dApp bridge resources.
             - Testnet only; experimental and unaudited.
             - Chrome real-browser wallet and Market integration checks are still required.
