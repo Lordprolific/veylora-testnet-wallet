@@ -73,23 +73,37 @@ function setupAutoLock() {
 function setupRecoveryPhraseInputs() {
   const grid = root!.querySelector<HTMLDivElement>("#recovery-phrase-grid");
   if (!grid) return;
+  const inputs = () => Array.from(grid.querySelectorAll<HTMLInputElement>("input[data-word-index]"));
   grid.addEventListener("paste", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || !target.matches("input[data-word-index]")) return;
     const clipboard = event as ClipboardEvent;
-    const raw = clipboard.clipboardData?.getData("text") ?? "";
-    const words = raw.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    if (words.length !== 24) return;
+    const words = (clipboard.clipboardData?.getData("text") ?? "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length < 2) return;
+    const fields = inputs();
+    const start = words.length === 24 ? 0 : Number(target.dataset.wordIndex);
+    if (start < 0 || start + words.length > fields.length) {
+      clipboard.preventDefault();
+      feedback("That many words will not fit from this position. Paste the complete 24-word phrase into any box to fill every field.", true);
+      return;
+    }
     clipboard.preventDefault();
-    grid.querySelectorAll<HTMLInputElement>("input[data-word-index]").forEach((input, index) => { input.value = words[index] ?? ""; });
-    feedback("All 24 recovery words were filled in. Check the order before continuing.");
+    if (words.length === 24) fields.forEach((input, index) => { input.value = words[index] ?? ""; });
+    else words.forEach((word, offset) => { fields[start + offset].value = word; });
+    fields[Math.min(start + words.length, fields.length - 1)]?.focus();
+    feedback(words.length === 24 ? "All 24 recovery words were filled in. Check their order before continuing." : "Recovery words filled into consecutive fields. Check their order before continuing.");
   });
   grid.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement) || !target.matches("input[data-word-index]")) return;
-    if (/\s/.test(target.value.trim())) {
-      const words = target.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      const inputs = Array.from(grid.querySelectorAll<HTMLInputElement>("input[data-word-index]"));
-      const start = Number(target.dataset.wordIndex);
-      if (words.length > 1 && start + words.length <= inputs.length) words.forEach((word, offset) => { inputs[start + offset].value = word; });
+    const value = target.value.trim();
+    if (!/\s/.test(value)) return;
+    const words = value.toLowerCase().split(/\s+/).filter(Boolean);
+    const fields = inputs();
+    const start = Number(target.dataset.wordIndex);
+    if (words.length > 1 && start + words.length <= fields.length) {
+      target.value = words[0];
+      words.slice(1).forEach((word, offset) => { fields[start + offset + 1].value = word; });
     }
   });
 }
@@ -120,6 +134,32 @@ function shell(content: string) {
         <footer><span>VEY LORA <b>·</b> TESTNET DEVELOPMENT</span><a href="https://github.com/Lordprolific/veylora-testnet-wallet/blob/main/docs/PRODUCT-SCOPE.md" target="_blank" rel="noreferrer">Product scope ↗</a></footer>
       </main>
     </div>`;
+}
+
+// Render dApp approvals inside the wallet instead of using browser-native confirmation dialogs.
+function requestWalletApproval(options: { title: string; origin: string; description: string; details: string }): Promise<boolean> {
+  return new Promise((resolve) => {
+    shell(`
+      <section class="flow-card narrow">
+        <div class="eyebrow">WALLET REQUEST · REVIEW REQUIRED</div>
+        <h2>${escapeHtml(options.title)}</h2>
+        <p class="flow-copy">${escapeHtml(options.description)}</p>
+        <div class="dashboard-card" style="margin:20px 0;padding:18px">
+          <div class="eyebrow">REQUESTING WEBSITE</div>
+          <p style="overflow-wrap:anywhere;font-weight:600">${escapeHtml(options.origin)}</p>
+          <div class="eyebrow" style="margin-top:18px">WHAT YOU ARE APPROVING</div>
+          <p style="overflow-wrap:anywhere;white-space:pre-wrap">${escapeHtml(options.details)}</p>
+        </div>
+        <div class="notice info-notice"><span class="notice-icon">i</span><div><strong>Review before continuing</strong><p>Only approve requests from a website you trust. Connecting shares public testnet addresses. Signing shares a signature. Neither action is a payment.</p></div></div>
+        <div class="actions"><button class="primary" id="wallet-approval-approve">Approve request</button><button class="secondary" id="wallet-approval-decline">Decline</button></div>
+      </section>`);
+    const approve = root!.querySelector<HTMLButtonElement>("#wallet-approval-approve");
+    const decline = root!.querySelector<HTMLButtonElement>("#wallet-approval-decline");
+    let settled = false;
+    const finish = (value: boolean) => { if (settled) return; settled = true; resolve(value); };
+    approve?.addEventListener("click", () => finish(true), { once: true });
+    decline?.addEventListener("click", () => finish(false), { once: true });
+  });
 }
 
 // dApp account sharing and message signing are approved inside this trusted extension page.
@@ -155,7 +195,12 @@ async function handleDappApprovalFromUrl() {
     }
     let response: any;
     if (pending.method === "zcash_requestAccounts") {
-      const approved = window.confirm("Connect Veylora Wallet?\n\nWebsite: " + pending.origin + "\n\nThis shares your Zcash testnet unified and transparent addresses. It does not authorize a payment.");
+      const approved = await requestWalletApproval({
+        title: "Connect Veylora Wallet?",
+        origin: pending.origin,
+        description: "The website is requesting access to your wallet addresses.",
+        details: "Share Zcash testnet unified and transparent addresses. This does not authorize a payment."
+      });
       response = await runtime.sendMessage(approved ? {
         type:"VEY LORA_DAPP_APPROVAL_RESULT",requestId,approved:true,
         accounts:{shielded:engineState.unifiedAddress,transparent:engineState.transparentAddress}
@@ -165,7 +210,12 @@ async function handleDappApprovalFromUrl() {
       const message = Array.isArray(pending.params) ? pending.params[0] : "";
       const options = Array.isArray(pending.params) ? pending.params[1] : {};
       if (typeof message !== "string" || !message || message.length > 4096) throw new Error("Invalid sign-in challenge.");
-      const approved = window.confirm("Sign Veylora Market sign-in challenge?\n\nWebsite: " + pending.origin + "\n\nThe site will receive a signature, public key and testnet identity address. This is not a payment and grants no spending permission.\n\nMessage:\n" + message.slice(0, 1200));
+      const approved = await requestWalletApproval({
+        title: "Approve sign-in signature?",
+        origin: pending.origin,
+        description: "The website is requesting a signature to verify your wallet sign-in.",
+        details: "Message to sign:\n" + message.slice(0, 1200) + "\n\nThe site receives a signature, public key and testnet identity address. This is not a payment."
+      });
       if (!approved) {
         response = await runtime.sendMessage({type:"VEY LORA_DAPP_APPROVAL_RESULT",requestId,approved:false,error:"You declined to sign this message."});
       } else {
@@ -315,6 +365,7 @@ function passwordView(mode: "create" | "restore") {
       setupAutoLock();
       armAutoLockTimer();
       feedback(mode === "create" ? "Encrypted vault created. Initializing the testnet account…" : "Recovery phrase encrypted. Restoring the testnet account…");
+      if (new URL(window.location.href).searchParams.has("dappApproval")) void handleDappApprovalFromUrl();
     } catch (error) {
       feedback(error instanceof Error ? error.message : "Could not save the encrypted vault.", true);
     } finally { busy = false; }
@@ -343,6 +394,7 @@ function unlockView() {
       setupAutoLock();
       armAutoLockTimer();
       feedback("Vault unlocked. It will lock after 5 minutes without activity.");
+      if (new URL(window.location.href).searchParams.has("dappApproval")) void handleDappApprovalFromUrl();
     } catch (error) { feedback(error instanceof Error ? error.message : "Could not unlock the vault.", true); }
   });
 }
